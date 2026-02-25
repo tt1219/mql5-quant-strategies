@@ -5,14 +5,14 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Your Name"
 #property link      "https://www.mql5.com"
-#property version   "2.20"
+#property version   "2.30"
 #property strict
 
 #include <Trade\Trade.mqh>
 
-//--- 入力パラメータ (v2.2: 高精度・堅実成長モデル / スパム対策版)
+//--- 入力パラメータ (v2.3: 多銘柄対応・高頻度バランスモデル)
 input int      InpBandsPeriod  = 20;          // Bolinger Bands 期間
-input double   InpBandsDev     = 2.3;         // Bolinger Bands 偏差 (1.8->2.3: 再厳選)
+input double   InpBandsDev     = 2.1;         // Bolinger Bands 偏差 (2.3->2.1: チャンスを倍増)
 input int      InpRSIPeriod    = 14;          // RSI 期間
 input double   InpRSILower     = 30.0;        // RSI 売られすぎ (35->30へ厳格化)
 input double   InpRSIUpper     = 70.0;        // RSI 買われすぎ (65->70)
