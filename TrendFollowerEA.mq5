@@ -5,30 +5,27 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Your Name"
 #property link      "https://www.mql5.com"
-#property version   "2.00"
+#property version   "2.10"
 #property strict
 
 #include <Trade\Trade.mqh>
 
-//--- 入力パラメータ (v2.0: 収益最大化・複利運用モデル)
+//--- 入力パラメータ (v2.1: 高頻度・収益最大化・確実利確モデル)
 input int      InpBandsPeriod  = 20;          // Bolinger Bands 期間
-input double   InpBandsDev     = 2.0;         // Bolinger Bands 偏差 (σ)
+input double   InpBandsDev     = 1.8;         // Bolinger Bands 偏差 (2.0->1.8: チャンス増加)
 input int      InpRSIPeriod    = 14;          // RSI 期間
-input double   InpRSILower     = 30.0;        // RSI 売られすぎ
-input double   InpRSIUpper     = 70.0;        // RSI 買われすぎ
+input double   InpRSILower     = 35.0;        // RSI 売られすぎ (30->35: チャンス増加)
+input double   InpRSIUpper     = 65.0;        // RSI 買われすぎ (70->65)
 input int      InpATRPeriod    = 14;          // ATR 期間
 input double   InpSLMultiplier = 2.0;         // 損切りのATR倍率
 input double   InpTPMultiplier = 1.0;         // 利確のATR倍率
-input int      InpStartHour    = 0;           // 取引開始 (MT5)
-input int      InpEndHour      = 9;           // 取引終了 (MT5)
+input int      InpStartHour    = 0;           // 取引開始 (MT5: 0時)
+input int      InpEndHour      = 22;          // 取引終了 (9->22: 欧州・NY時間もカバー)
 
-//--- v2.0 新機能パラメータ
+//--- v2.1 資金管理
 input bool     InpUseMM        = true;        // 複利運用を使用するか
-input double   InpRiskPercent  = 2.0;         // 1トレードあたりのリスク (%)
+input double   InpRiskPercent  = 1.0;         // 1トレード量のリスク (2.0->1.0%: 回数増に対応)
 input double   InpMinLot       = 0.01;        // 最小ロット
-input bool     InpUseTrail     = true;        // トレーリングストップを使用するか
-input double   InpTrailStep    = 0.5;         // トレーリングのステップ (ATR倍率)
-
 input int      InpMagicNumber  = 123456;      // マジックナンバー
 
 //--- グローバル変数
@@ -45,7 +42,7 @@ int OnInit()
       return(INIT_FAILED);
    
    trade.SetExpertMagicNumber(InpMagicNumber);
-   Print("BollingerReverse EA v2.0 (Profit Maximization) 起動");
+   Print("BollingerReverse EA v2.1 (High Frequency Mode) 起動");
    return(INIT_SUCCEEDED);
   }
 
@@ -72,36 +69,16 @@ void OnTick()
 
    bool hasPosition = PositionSelectByMagic(_Symbol, InpMagicNumber);
    
-   //--- 決済・トレーリングロジック (v2.0)
+   //--- 決済ロジック (v2.1: シンプルなセンターライン決済に回帰)
    if(hasPosition)
      {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double currentSL = PositionGetDouble(POSITION_SL);
       ENUM_POSITION_TYPE pType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
       
-      // トレーリングストップ (利益が出ている場合にSLを引き上げる)
-      if(InpUseTrail)
-        {
-         double step = atr[0] * InpTrailStep;
-         if(pType == POSITION_TYPE_BUY)
-           {
-            double newSL = bid - (atr[0] * InpSLMultiplier);
-            if(bid > base[0] && newSL > currentSL + step)
-               trade.PositionModify(PositionGetInteger(POSITION_TICKET), NormalizeDouble(newSL, _Digits), PositionGetDouble(POSITION_TP));
-           }
-         else if(pType == POSITION_TYPE_SELL)
-           {
-            double newSL = ask + (atr[0] * InpSLMultiplier);
-            if(ask < base[0] && (currentSL == 0 || newSL < currentSL - step))
-               trade.PositionModify(PositionGetInteger(POSITION_TICKET), NormalizeDouble(newSL, _Digits), PositionGetDouble(POSITION_TP));
-           }
-        }
-
-      // 基本決済 (センターライン)
-      if(pType == POSITION_TYPE_BUY && bid >= base[0] && !InpUseTrail)
+      if(pType == POSITION_TYPE_BUY && bid >= base[0])
          trade.PositionClose(_Symbol);
-      else if(pType == POSITION_TYPE_SELL && ask <= base[0] && !InpUseTrail)
+      else if(pType == POSITION_TYPE_SELL && ask <= base[0])
          trade.PositionClose(_Symbol);
      }
 
@@ -125,20 +102,20 @@ void OnTick()
       if(isTimeOK && !isExpanding && iLow(_Symbol, _Period, 1) <= lower[1] && close[1] > lower[1] && rsi[1] <= InpRSILower)
         {
          double sl = ask - (atr[1] * InpSLMultiplier);
-         double tp = ask + (atr[1] * InpTPMultiplier * 2.0); // TPは深めに設定 (Trailで追うため)
-         trade.Buy(lot, _Symbol, ask, NormalizeDouble(sl, _Digits), NormalizeDouble(tp, _Digits), "BB Rev v2.0 Buy");
+         double tp = ask + (atr[1] * InpTPMultiplier * 1.5); // TPは予備
+         trade.Buy(lot, _Symbol, ask, NormalizeDouble(sl, _Digits), NormalizeDouble(tp, _Digits), "BB Rev v2.1 Buy");
         }
       else if(isTimeOK && !isExpanding && iHigh(_Symbol, _Period, 1) >= upper[1] && close[1] < upper[1] && rsi[1] >= InpRSIUpper)
         {
          double sl = bid + (atr[1] * InpSLMultiplier);
-         double tp = bid - (atr[1] * InpTPMultiplier * 2.0);
-         trade.Sell(lot, _Symbol, bid, NormalizeDouble(sl, _Digits), NormalizeDouble(tp, _Digits), "BB Rev v2.0 Sell");
+         double tp = bid - (atr[1] * InpTPMultiplier * 1.5);
+         trade.Sell(lot, _Symbol, bid, NormalizeDouble(sl, _Digits), NormalizeDouble(tp, _Digits), "BB Rev v2.1 Sell");
         }
      }
 
-   Comment("--- BollingerReverse v2.0 (収益最大化) ---\n",
-           "リスク設定: ", InpRiskPercent, "%\n",
-           "トレーリング: ", (InpUseTrail ? "ON" : "OFF"), "\n",
+   Comment("--- BollingerReverse v2.1 (高頻度モデル) ---\n",
+           "リスク/回: ", InpRiskPercent, "%\n",
+           "取引窓口: ", InpStartHour, "-", InpEndHour, " (24h体制)\n",
            "フィルター: ", ((upper[1]-lower[1] > (upper[2]-lower[2])*1.2) ? "待機" : "正常"));
   }
 
