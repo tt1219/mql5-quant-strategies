@@ -1,6 +1,6 @@
 #property copyright "Copyright 2026, Antigravity AI"
 #property link      "https://github.com/google-deepmind/antigravity"
-#property version   "4.20"
+#property version   "4.30"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -13,6 +13,8 @@ input double   InpRSILower     = 35.0;        // RSI 下限 (緩和: 35)
 input double   InpRSIUpper     = 65.0;        // RSI 上限 (緩和: 65)
 input int      InpEMAPeriod    = 200;         // トレンドフィルター (EMA 200)
 input int      InpATRPeriod    = 14;          // ATR 期間
+input int      InpADXPeriod    = 14;          // ADX 期間 (v4.3)
+input int      InpADXThreshold = 25;          // ADX しきい値 (これ以下で逆張り - v4.3)
 input double   InpSLMultiplier = 1.2;         // ストップロス倍率 (ATR x 1.2 - 損小化)
 input double   InpTPMultiplier = 1.0;         // 利確倍率 (ATR x N)
 input int      InpStartHour    = 8;           // 開始時間 (GMT - 欧州開始)
@@ -22,7 +24,7 @@ input double   InpRiskPercent  = 10.0;        // 1トレードあたりの許容
 input double   InpMinLot       = 0.01;        // 最小ロット
 input bool     InpUseMidClose  = true;        // 中央線で利確する
 input int      InpMaxSpread    = 30;          // 許容最大スプレッド (points)
-input long     InpMagicNumber  = 400000;      // マジックナンバー (v4.2)
+input long     InpMagicNumber  = 400000;      // マジックナンバー (v4.3)
 
 //--- グローバル変数
 CTrade      trade;
@@ -30,6 +32,7 @@ int         handleBands;
 int         handleRSI;
 int         handleEMA;
 int         handleATR;
+int         handleADX;
 datetime    lastTradeBar = 0;
 
 //+------------------------------------------------------------------+
@@ -41,9 +44,11 @@ int OnInit()
    handleRSI   = iRSI(_Symbol, _Period, InpRSIPeriod, PRICE_CLOSE);
    handleEMA   = iMA(_Symbol, _Period, InpEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    handleATR   = iATR(_Symbol, _Period, InpATRPeriod);
+   handleADX   = iADX(_Symbol, _Period, InpADXPeriod);
 
    if(handleBands == INVALID_HANDLE || handleRSI == INVALID_HANDLE || 
-      handleEMA == INVALID_HANDLE || handleATR == INVALID_HANDLE)
+      handleEMA == INVALID_HANDLE || handleATR == INVALID_HANDLE ||
+      handleADX == INVALID_HANDLE)
    {
       Print("指標ハンドル取得失敗");
       return(INIT_FAILED);
@@ -62,6 +67,7 @@ void OnDeinit(const int reason)
    IndicatorRelease(handleRSI);
    IndicatorRelease(handleEMA);
    IndicatorRelease(handleATR);
+   IndicatorRelease(handleADX);
 }
 
 //+------------------------------------------------------------------+
@@ -78,13 +84,14 @@ void OnTick()
    TimeCurrent(dt);
    if(dt.hour < InpStartHour || dt.hour > InpEndHour) return;
 
-   double base[], upper[], lower[], rsi[], ema[], atr[];
+   double base[], upper[], lower[], rsi[], ema[], atr[], adx[];
    ArraySetAsSeries(base, true);
    ArraySetAsSeries(upper, true);
    ArraySetAsSeries(lower, true);
    ArraySetAsSeries(rsi, true);
    ArraySetAsSeries(ema, true);
    ArraySetAsSeries(atr, true);
+   ArraySetAsSeries(adx, true);
    
    if(CopyBuffer(handleBands, 0, 1, 2, base) <= 0) return;
    if(CopyBuffer(handleBands, 1, 1, 2, upper) <= 0) return;
@@ -92,6 +99,7 @@ void OnTick()
    if(CopyBuffer(handleRSI, 0, 1, 2, rsi) <= 0) return;
    if(CopyBuffer(handleEMA, 0, 1, 2, ema) <= 0) return;
    if(CopyBuffer(handleATR, 0, 1, 2, atr) <= 0) return;
+   if(CopyBuffer(handleADX, 0, 1, 2, adx) <= 0) return;
 
    double close1 = iClose(_Symbol, _Period, 1);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -134,9 +142,8 @@ void OnTick()
    // スプレッドチェック
    if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > InpMaxSpread) return;
 
-   // --- ロジック: ハイパー・ボリンジャー反転 (v4.1: EMAフィルター復活) ---
-   // 買い条件: 下限バンドを下抜けた or タッチ 且つ RSIが売られすぎ 且つ トレンドフィルター(価格 > EMA)
-   if(close1 < lower[0] && rsi[0] < InpRSILower && close1 > ema[0])
+   // 買い条件: 下限バンドを下抜けた or タッチ 且つ RSIが売られすぎ 且つ 順張りトレンド(価格 > EMA) 且つ ADXが低い(急なトレンドでない)
+   if(close1 < lower[0] && rsi[0] < InpRSILower && close1 > ema[0] && adx[0] < InpADXThreshold)
    {
       double sl = ask - (atr[0] * InpSLMultiplier);
       double tp = ask + (atr[0] * InpTPMultiplier);
@@ -148,8 +155,8 @@ void OnTick()
          PrintFormat("Hyper Buy: %s, Lot: %.2f", _Symbol, lots);
       }
    }
-   // 売り条件: 上限バンドを上抜けた or タッチ 且つ RSIが買われすぎ 且つ トレンドフィルター(価格 < EMA)
-   else if(close1 > upper[0] && rsi[0] > InpRSIUpper && close1 < ema[0])
+   // 売り条件: 上限バンドを上抜けた or タッチ 且つ RSIが買われすぎ 且つ 順張りトレンド(価格 < EMA) 且つ ADXが低い(急なトレンドでない)
+   else if(close1 > upper[0] && rsi[0] > InpRSIUpper && close1 < ema[0] && adx[0] < InpADXThreshold)
    {
       double sl = bid + (atr[0] * InpSLMultiplier);
       double tp = bid - (atr[0] * InpTPMultiplier);

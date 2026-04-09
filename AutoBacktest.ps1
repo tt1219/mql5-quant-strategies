@@ -3,7 +3,8 @@ param (
     [string]$Pair = "USDJPY",
     [double]$Risk = 2.0,
     [double]$Dev = 1.5,
-    [string]$Period = "M15"
+    [string]$Period = "M15",
+    [int]$ADX = 25
 )
 
 $TerminalPath = "C:\Program Files\XMTrading MT5\terminal64.exe"
@@ -22,7 +23,7 @@ Start-Process -FilePath $EditorPath -ArgumentList "/compile:`"$ExpertSource`"", 
 # 2. バックテスト実行
 Write-Host "`n--- Testing $Pair (Risk=$Risk%, Dev=$Dev, Period=$Period) ---" -ForegroundColor Cyan
 
-$ReportFileName = "OptReport_$($Pair)_$($Period)_R$($Risk)_D$($Dev).html"
+$ReportFileName = "OptReport_$($Pair)_$($Period)_R$($Risk)_D$($Dev)_A$($ADX).html"
 $IniFile = "$env:TEMP\mt5_opt_config_$($Pair).ini"
 
 $ConfigContent = @"
@@ -47,6 +48,7 @@ InpBandsDev=$Dev
 InpSLMultiplier=1.2
 InpStartHour=8
 InpEndHour=20
+InpADXThreshold=$ADX
 "@
 $ConfigContent | Out-File -FilePath $IniFile -Encoding unicode
 
