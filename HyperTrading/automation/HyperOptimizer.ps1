@@ -1,5 +1,5 @@
-$PS_SCRIPT = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\AutoBacktest.ps1"
-$RESULT_DIR = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\BacktestResults_Opt"
+$PS_SCRIPT = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\HyperTrading\automation\AutoBacktest.ps1"
+$RESULT_DIR = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\HyperTrading\BacktestResults_Opt"
 
 # Verified Winners from v4.54
 $PAIRS = @("AUDUSD#", "EURUSD", "GBPUSD", "USDCAD#")
@@ -54,5 +54,5 @@ foreach ($pair in $PAIRS) {
     }
 }
 
-$Results | Sort-Object Trades -Descending | Export-Csv -Path "high_freq_results_v4.61.csv" -NoTypeInformation
+$Results | Sort-Object Trades -Descending | Export-Csv -Path "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\HyperTrading\data\high_freq_results_v4.61.csv" -NoTypeInformation
 $Results | Sort-Object Trades -Descending | Format-Table
