@@ -1,6 +1,6 @@
 #property copyright "Copyright 2026, Antigravity AI"
 #property link      "https://github.com/google-deepmind/antigravity"
-#property version   "4.30"
+#property version   "1.02"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -26,6 +26,12 @@ input bool     InpUseMidClose  = true;        // 中央線で利確する
 input int      InpMaxSpread    = 30;          // 許容最大スプレッド (points)
 input long     InpMagicNumber  = 400000;      // マジックナンバー (v4.3)
 
+//--- 内部計算用変数 (銘柄別上書きを可能にするため)
+double   extBandsDev;
+int      extADXThreshold;
+double   extRSILower;
+double   extRSIUpper;
+
 //--- グローバル変数
 CTrade      trade;
 int         handleBands;
@@ -40,7 +46,58 @@ datetime    lastTradeBar = 0;
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   handleBands = iBands(_Symbol, _Period, InpBandsPeriod, 0, InpBandsDev, PRICE_CLOSE);
+   // --- 初期値代入
+   extBandsDev     = InpBandsDev;
+   extADXThreshold = InpADXThreshold;
+   extRSILower     = InpRSILower;
+   extRSIUpper     = InpRSIUpper;
+
+   // --- v4.65: 4銘柄・自動最適化ロジック (10万円・KIWAMI極口座用)
+   if(_Symbol == "EURUSD#")
+   {
+      extBandsDev = 1.8;
+      extADXThreshold = 35;
+      extRSILower = 35.0; extRSIUpper = 65.0;
+      Print("EURUSD# 最適設定を適用しました");
+   }
+   else if(_Symbol == "AUDUSD#")
+   {
+      extBandsDev = 2.0;
+      extADXThreshold = 25;
+      extRSILower = 30.0; extRSIUpper = 70.0;
+      Print("AUDUSD# 最適設定を適用しました");
+   }
+   else if(_Symbol == "GBPUSD")
+   {
+      extBandsDev = 2.2;
+      extADXThreshold = 30;
+      extRSILower = 30.0; extRSIUpper = 70.0;
+      Print("GBPUSD 最適設定を適用しました");
+   }
+   else if(_Symbol == "USDCAD#")
+   {
+      extBandsDev = 2.0;
+      extADXThreshold = 30;
+      extRSILower = 35.0; extRSIUpper = 65.0;
+      Print("USDCAD# 最適設定を適用しました");
+   }
+   else {
+      PrintFormat("%s 用のプリセットがないため、デフォルト設定を使用します", _Symbol);
+   }
+
+   // --- チャート上に設定を表示 (確認用)
+   string comment = StringFormat(
+      "=== BollingerReverseEA_Hyper v1.02 ===\n"+
+      "Symbol: %s\n"+
+      "BandsDev: %.1f\n"+
+      "RSI Upper/Lower: %.1f / %.1f\n"+
+      "ADX Threshold: %d\n"+
+      "Risk: %.1f%%",
+      _Symbol, extBandsDev, extRSIUpper, extRSILower, extADXThreshold, InpRiskPercent
+   );
+   Comment(comment);
+
+   handleBands = iBands(_Symbol, _Period, InpBandsPeriod, 0, extBandsDev, PRICE_CLOSE);
    handleRSI   = iRSI(_Symbol, _Period, InpRSIPeriod, PRICE_CLOSE);
    handleEMA   = iMA(_Symbol, _Period, InpEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    handleATR   = iATR(_Symbol, _Period, InpATRPeriod);
@@ -143,7 +200,7 @@ void OnTick()
    if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > InpMaxSpread) return;
 
    // 買い条件: 下限バンドを下抜けた or タッチ 且つ RSIが売られすぎ 且つ 順張りトレンド(価格 > EMA) 且つ ADXが低い(急なトレンドでない)
-   if(close1 < lower[0] && rsi[0] < InpRSILower && close1 > ema[0] && adx[0] < InpADXThreshold)
+   if(close1 < lower[0] && rsi[0] < extRSILower && close1 > ema[0] && adx[0] < extADXThreshold)
    {
       double sl = ask - (atr[0] * InpSLMultiplier);
       double tp = ask + (atr[0] * InpTPMultiplier);
@@ -156,7 +213,7 @@ void OnTick()
       }
    }
    // 売り条件: 上限バンドを上抜けた or タッチ 且つ RSIが買われすぎ 且つ 順張りトレンド(価格 < EMA) 且つ ADXが低い(急なトレンドでない)
-   else if(close1 > upper[0] && rsi[0] > InpRSIUpper && close1 < ema[0] && adx[0] < InpADXThreshold)
+   else if(close1 > upper[0] && rsi[0] > extRSIUpper && close1 < ema[0] && adx[0] < extADXThreshold)
    {
       double sl = bid + (atr[0] * InpSLMultiplier);
       double tp = bid - (atr[0] * InpTPMultiplier);
