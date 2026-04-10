@@ -10,10 +10,10 @@ param (
 $TerminalPath = "C:\Program Files\XMTrading MT5\terminal64.exe"
 $EditorPath = "C:\Program Files\XMTrading MT5\metaeditor64.exe"
 $DataDir = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675"
-$ExpertSource = "$DataDir\MQL5\Experts\HyperTrading\BollingerReverseEA_Hyper.mq5"
-$ExpertBaseName = "HyperTrading\BollingerReverseEA_Hyper.ex5"
+$ExpertSource = "$DataDir\MQL5\Experts\01_HyperTrading\BollingerReverseEA_Hyper.mq5"
+$ExpertBaseName = "01_HyperTrading\BollingerReverseEA_Hyper.ex5"
 
-$FinalReportDir = "$DataDir\MQL5\Experts\HyperTrading\BacktestResults_Opt"
+$FinalReportDir = "$DataDir\MQL5\Experts\01_HyperTrading\BacktestResults_Opt"
 if (!(Test-Path $FinalReportDir)) { New-Item -ItemType Directory -Path $FinalReportDir }
 
 # 1. 自動コンパイル
