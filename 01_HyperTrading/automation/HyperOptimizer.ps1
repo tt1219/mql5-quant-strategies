@@ -1,4 +1,4 @@
-$PS_SCRIPT = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\01_HyperTrading\automation\AutoBacktest.ps1"
+$PS_SCRIPT = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\01_HyperTrading\automation\HyperTester.ps1"
 $RESULT_DIR = "c:\Users\user\AppData\Roaming\MetaQuotes\Terminal\2FA8A7E69CED7DC259B1AD86A247F675\MQL5\Experts\01_HyperTrading\BacktestResults_Opt"
 
 # Verified Winners from v4.54
