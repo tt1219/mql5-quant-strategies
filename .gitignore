@@ -1,6 +1,8 @@
 *.ex5
-*.tst
+*.ini
+BacktestResults_Opt/*.html
+Tester/
+.logs/
 *.log
-*.dat
-.agents/
-バックテスト結果/
+MQL5/Logs/
+MQL5/Profiles/
