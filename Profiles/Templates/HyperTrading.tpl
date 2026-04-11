@@ -1,8 +1,8 @@
 <chart>
 windows_total=1
 <expert>
-name=Active\BollingerHyper\BollingerReverseEA_Hyper
-path=Experts\Active\BollingerHyper\BollingerReverseEA_Hyper.ex5
+name=Strategies\Rev_Bollinger\Rev_Bollinger
+path=Experts\Strategies\Rev_Bollinger\Rev_Bollinger.ex5
 expertmode=1
 <inputs>
 InpMagicNumber=10101

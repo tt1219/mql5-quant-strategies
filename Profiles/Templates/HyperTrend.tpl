@@ -1,0 +1,17 @@
+<chart>
+windows_total=1
+<expert>
+name=Strategies\Fol_TrendScalper\Fol_TrendScalper
+path=Experts\Strategies\Fol_TrendScalper\Fol_TrendScalper.ex5
+expertmode=1
+<inputs>
+InpMagicNumber=500001
+InpRiskPercent=1.0
+</inputs>
+</expert>
+<window>
+<indicator>
+name=Main
+</indicator>
+</window>
+</chart>

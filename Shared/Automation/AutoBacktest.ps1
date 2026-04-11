@@ -9,18 +9,24 @@ param (
     [int]$ADX = 25,
     [int]$NewsMins = 10,
     [int]$UseNewsFilter = 1,
-    [string]$ExtraInputs = "" # 追加のパラメータ文字列 (InpA=1;InpB=2)
+    [string]$ExtraInputs = "", # 追加のパラメータ文字列 (InpA=1;InpB=2)
+    [string]$FromDate = "2026.01.01",
+    [string]$ToDate = "2026.04.11"
 )
 
 $ConfigPath = Join-Path (Split-Path $PSCommandPath) "env_config.ps1"
 . $ConfigPath
 
-$EAPaths = Get-EA-Paths -EAName $EAFolder
-# ファイル名がフォルダ名と異なる場合の個別上書き
-if ($EAFile -ne $EAFolder) {
-    $EAPaths.Source = "$DataDir\MQL5\Experts\Active\$EAFolder\$EAFile.mq5"
-    $EAPaths.BaseName = "Active\$EAFolder\$EAFile"
+# Ensure MT5 is closed before starting with new config
+Write-Host "Checking for running MT5 terminal..."
+$terminals = Get-Process | Where-Object { $_.Name -eq "terminal64" }
+if ($terminals) {
+    Write-Host "Closing running MT5 instance to apply configuration..." -ForegroundColor Yellow
+    $terminals | Stop-Process -Force
+    Start-Sleep -Seconds 3
 }
+
+$EAPaths = Get-EA-Paths -EAFolder $EAFolder -EAName $EAFile
 
 $BoolUseNewsFilter = ($UseNewsFilter -eq 1)
 
@@ -41,14 +47,17 @@ $SafePair = $Pair -replace '#', '_SHARP'
 $ReportFileName = "OptReport_$($SafePair)_$($Period)_R$($Risk)_D$($Dev)_A$($ADX)$($Suffix).html"
 $IniFile = "$env:TEMP\mt5_opt_config_$($SafePair).ini"
 
+# Replace semicolons with actual newlines for the .ini file
+$ParamsForIni = $ExtraInputs -replace ';', "`r`n"
+
 $ConfigContent = @"
 [Tester]
 Expert=$($EAPaths.BaseName)
 Symbol=$Pair
 Period=$Period
 Model=0
-FromDate=2025.01.01
-ToDate=2026.01.01
+FromDate=$($FromDate)
+ToDate=$($ToDate)
 Deposit=10000
 Currency=USD
 Leverage=1:1000
@@ -59,15 +68,7 @@ Visual=0
 
 [TesterInputs]
 InpRiskPercent=$Risk
-InpBandsDev=$Dev
-InpSLMultiplier=1.2
-InpStartHour=8
-InpEndHour=20
-InpADXThreshold=$ADX
-InpUseNewsFilter=$BoolUseNewsFilter
-InpNewsMinsBefore=$NewsMins
-InpNewsMinsAfter=$NewsMins
-$ExtraInputs
+$ParamsForIni
 "@
 $ConfigContent | Out-File -FilePath $IniFile -Encoding unicode
 

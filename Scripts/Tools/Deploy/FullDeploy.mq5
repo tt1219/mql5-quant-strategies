@@ -3,18 +3,28 @@
 //|                                  Copyright 2026, Antigravity AI |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Antigravity AI"
-#property version   "1.02"
+#property version   "1.03"
 #property strict
 #property script_show_inputs
+
+//--- 戦略列挙型
+enum ENUM_STRATEGY
+{
+   STRAT_REVERSE_BOLLINGER, // 守り: 逆張りボリンジャー (Rev_Bollinger)
+   STRAT_FOLLOW_TREND       // 攻め: 順張りトレンドスキャル (Fol_TrendScalper)
+};
+
+input ENUM_STRATEGY InpStrategy = STRAT_REVERSE_BOLLINGER; // 展開する戦略を選択してください
 
 //+------------------------------------------------------------------+
 //| Script program start function                                    |
 //+------------------------------------------------------------------+
 void OnStart()
 {
-   Print("HyperTrading 全自動デプロイを開始します (4銘柄版)...");
+   string stratName = (InpStrategy == STRAT_REVERSE_BOLLINGER) ? "逆張りボリンジャー" : "順張りトレンドスキャル";
+   PrintFormat("HyperTrading 全自動デプロイを開始します: [%s]", stratName);
 
-   // 1. 現在開いているすべてのチャートを閉じる (大掃除)
+   // 1. 現在開いているすべてのチャートを閉じる
    long firstChart = ChartFirst();
    while(firstChart != -1)
    {
@@ -23,39 +33,40 @@ void OnStart()
       firstChart = nextChart;
    }
 
-   // 2. 4銘柄を展開してテンプレートを適用
-   DeployChart("EURUSD#", PERIOD_M15, 10101);
-   DeployChart("AUDUSD#", PERIOD_H1,  10102);
-   DeployChart("GBPUSD",  PERIOD_H1,  10103);
-   DeployChart("USDCAD#", PERIOD_H1,  10104);
+   // 2. ターゲット銘柄の展開
+   // 第3引数のマジックナンバーはテンプレート内で上書きされる可能性がありますが、管理用に指定
+   DeployChart("EURUSD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M5 : PERIOD_M15);
+   DeployChart("AUDUSD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M5 : PERIOD_H1);
+   DeployChart("GBPUSD",  (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M5 : PERIOD_H1);
+   DeployChart("USDCAD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M5 : PERIOD_H1);
 
-   Print("4銘柄デプロイ完了！すべてのチャートでニコニコマークを確認してください。");
+   PrintFormat("[%s] のデプロイが完了しました。各チャートの設定を確認してください。", stratName);
 }
 
 //+------------------------------------------------------------------+
 //| 指定された銘柄と時間足でEAを適用                                   |
 //+------------------------------------------------------------------+
-void DeployChart(string symbol, ENUM_TIMEFRAMES period, int magic)
+void DeployChart(string symbol, ENUM_TIMEFRAMES period)
 {
-   PrintFormat("%s (%s) の展開を開始します...", symbol, EnumToString(period));
+   string tplName = (InpStrategy == STRAT_REVERSE_BOLLINGER) ? "HyperTrading.tpl" : "HyperTrend.tpl";
+   
+   PrintFormat("展開: %s (%s)", symbol, EnumToString(period));
    long chartID = ChartOpen(symbol, period);
    if(chartID > 0)
    {
-      // チャートが準備できるまで少し待つ (安定性のため)
-      Sleep(500);
+      Sleep(500); // チャート安定待ち
       
-      // 作成したテンプレートを適用してEAを自動起動させる
-      if(ChartApplyTemplate(chartID, "HyperTrading.tpl"))
+      if(ChartApplyTemplate(chartID, tplName))
       {
-         PrintFormat("%s にEAを自動アタッチしました。", symbol);
+         PrintFormat("SUCCESS: %s にテンプレート [%s] を適用しました。", symbol, tplName);
       }
       else
       {
-         PrintFormat("%s のアタッチに失敗しました。手動でHyperTradingテンプレートを適用してください。", symbol);
+         PrintFormat("ERROR: %s へのテンプレート適用に失敗しました。", symbol);
       }
    }
    else 
    {
-      PrintFormat("%s を開けませんでした。銘柄名を確認してください。", symbol);
+      PrintFormat("ERROR: %s を開けませんでした。銘柄名が存在するか確認してください。", symbol);
    }
 }
