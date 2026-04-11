@@ -33,6 +33,8 @@ Thumbs.db
 
 # MT5 Chart Profiles (Local Workspace State)
 Profiles/**/*.chr
+Profiles/**/*.wnd
+Profiles/SymbolSets/
 
 # Backtest results and raw data
 **/data/
