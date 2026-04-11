@@ -3,7 +3,7 @@
 //|                                  Copyright 2026, Antigravity AI |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Antigravity AI"
-#property version   "1.01"
+#property version   "1.02"
 #property strict
 #property script_show_inputs
 
@@ -24,10 +24,10 @@ void OnStart()
    }
 
    // 2. 4銘柄を展開してテンプレートを適用
-   DeployChart("EURUSD#", PERIOD_M15);
-   DeployChart("AUDUSD#", PERIOD_H1);
-   DeployChart("GBPUSD",  PERIOD_M15);
-   DeployChart("USDCAD#", PERIOD_H1);
+   DeployChart("EURUSD#", PERIOD_M15, 10101);
+   DeployChart("AUDUSD#", PERIOD_H1,  10102);
+   DeployChart("GBPUSD",  PERIOD_H1,  10103);
+   DeployChart("USDCAD#", PERIOD_H1,  10104);
 
    Print("4銘柄デプロイ完了！すべてのチャートでニコニコマークを確認してください。");
 }
@@ -35,8 +35,9 @@ void OnStart()
 //+------------------------------------------------------------------+
 //| 指定された銘柄と時間足でEAを適用                                   |
 //+------------------------------------------------------------------+
-void DeployChart(string symbol, ENUM_TIMEFRAMES period)
+void DeployChart(string symbol, ENUM_TIMEFRAMES period, int magic)
 {
+   PrintFormat("%s (%s) の展開を開始します...", symbol, EnumToString(period));
    long chartID = ChartOpen(symbol, period);
    if(chartID > 0)
    {

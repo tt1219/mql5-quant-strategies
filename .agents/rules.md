@@ -48,3 +48,8 @@ description: 回答の言語設定に関するルール
 47:     - `Experts/Active/[EA名]/[EA名].mq5`: メインソース
 48:     - `Experts/Active/[EA名]/reports/`: Git管理対象の報告書
 49:     - `Experts/Active/[EA名]/BacktestResults_Opt/`: 除外対象の生データ出力先
+49: 
+50: ### 9. バージョン管理とパラメータ同期
+51: - **バージョン更新の義務**: EAのロジック変更、または最適化パラメータ（`InpAutoPreset` 等）を更新した際は、必ず `#property version` をインクリメントする。
+52: - **デプロイスクリプトの同期**: `FullDeploy.mq5` などの自動展開スクリプトは、常に最新の `full_backtest_report.md` と同期させ、推奨銘柄・時間足が反映されていることを定期的に監査する。
+53: - **一貫性の維持**: EA内部のデフォルト値、プリセット値、およびデプロイ設定の3点は常に矛盾がないように管理する。

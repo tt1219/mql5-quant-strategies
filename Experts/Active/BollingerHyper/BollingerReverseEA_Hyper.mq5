@@ -1,6 +1,6 @@
 #property copyright "Copyright 2026, Antigravity AI"
 #property link      "https://github.com/google-deepmind/antigravity"
-#property version   "1.02"
+#property version   "1.03"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -83,12 +83,12 @@ int OnInit()
       }
       else if(StringFind(symbol, "USDCAD") >= 0)
       {
-         extBandsDev = 1.8; extADXThreshold = 30; presetStatus = "USDCAD Opt (H1)";
+         extBandsDev = 1.5; extADXThreshold = 30; presetStatus = "USDCAD Opt (H1)";
          if(_Period != PERIOD_H1) Print("Warning: USDCAD is best optimized for H1.");
       }
       else if(StringFind(symbol, "GBPUSD") >= 0)
       {
-         extBandsDev = 1.8; extADXThreshold = 25; presetStatus = "GBPUSD Opt (H1)";
+         extBandsDev = 1.8; extADXThreshold = 30; presetStatus = "GBPUSD Opt (H1)";
          if(_Period != PERIOD_H1) Print("Warning: GBPUSD is best optimized for H1.");
       }
    }
