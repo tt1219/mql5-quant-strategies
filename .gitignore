@@ -1,5 +1,15 @@
 # MQL5 Project Ignore Rules
 
+# MT5 Standard Folders (Ignore)
+Include/
+Libraries/
+Experts/Examples/
+Experts/Advisors/
+Experts/Free Robots/
+Scripts/Examples/
+Scripts/UnitTests/
+Indicators/Examples/
+
 # Compiled binaries
 *.ex5
 *.ex4
