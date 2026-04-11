@@ -30,5 +30,16 @@ experts.dat
 .DS_Store
 Thumbs.db
 
+# MT5 Chart Profiles (Local Workspace State)
+Profiles/**/*.chr
+
+# Backtest results and raw data
+**/data/
+**/BacktestResults_Opt/
+*.csv
+*.html
+!**/reports/*.md
+!**/reports/*.html
+
 # Knowledge items for AI agents (Optional: keep if you want to track them)
 #!.agents/

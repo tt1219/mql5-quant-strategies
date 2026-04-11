@@ -25,6 +25,12 @@ input double   InpMinLot       = 0.01;        // 最小ロット
 input bool     InpUseMidClose  = true;        // 中央線で利確する
 input int      InpMaxSpread    = 30;          // 許容最大スプレッド (points)
 input long     InpMagicNumber  = 400000;      // マジックナンバー (v4.3)
+input bool     InpAutoPreset   = true;        // 銘柄別オートプリセットを使用 (FullDeploy推奨)
+//--- ニュースフィルタ設定
+input bool     InpUseNewsFilter   = true;     // ニュースフィルタを使用
+input int      InpNewsMinsBefore  = 30;       // 指標の何分前に停止・決済するか
+input int      InpNewsMinsAfter   = 30;       // 指標の何分後に再開するか
+input int      InpNewsCacheDays   = 3;        // 何日分のニュースを読み込むか
 
 //--- 内部計算用変数 (銘柄別上書きを可能にするため)
 double   extBandsDev;
@@ -40,60 +46,65 @@ int         handleEMA;
 int         handleATR;
 int         handleADX;
 datetime    lastTradeBar = 0;
+//--- ニュースフィルタ用グローバル変数
+datetime    newsTimes[];        // 重要指標の予定時間（キャッシュ）
+datetime    lastNewsUpdate = 0; // 最後にキャッシュを更新した時間 
+string      baseCur = "";       // 通貨ペアのベース通貨 (例: EUR)
+string      quoteCur = "";      // 通貨ペアの決済通貨 (例: USD)
 
 //+------------------------------------------------------------------+
 //| EA Initialization                                                |
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   // --- 初期値代入
+   // --- デフォルト値のロード
    extBandsDev     = InpBandsDev;
    extADXThreshold = InpADXThreshold;
    extRSILower     = InpRSILower;
    extRSIUpper     = InpRSIUpper;
 
-   // --- v4.65: 4銘柄・自動最適化ロジック (10万円・KIWAMI極口座用)
-   if(_Symbol == "EURUSD#")
+   string presetStatus = "Manual (Inputs)";
+
+   // --- FullDeploy: オートプリセット・ロジック ---
+   if(InpAutoPreset)
    {
-      extBandsDev = 1.8;
-      extADXThreshold = 35;
-      extRSILower = 35.0; extRSIUpper = 65.0;
-      Print("EURUSD# 最適設定を適用しました");
+      string symbol = _Symbol;
+      StringToUpper(symbol);
+      
+      if(StringFind(symbol, "EURUSD") >= 0)
+      {
+         extBandsDev = 1.5; extADXThreshold = 25; presetStatus = "EURUSD Opt (M15)";
+         if(_Period != PERIOD_M15) Print("Warning: EURUSD is best optimized for M15.");
+      }
+      else if(StringFind(symbol, "AUDUSD") >= 0)
+      {
+         extBandsDev = 1.5; extADXThreshold = 25; presetStatus = "AUDUSD Opt (H1)";
+         if(_Period != PERIOD_H1) Print("Warning: AUDUSD is best optimized for H1.");
+      }
+      else if(StringFind(symbol, "USDCAD") >= 0)
+      {
+         extBandsDev = 1.8; extADXThreshold = 30; presetStatus = "USDCAD Opt (H1)";
+         if(_Period != PERIOD_H1) Print("Warning: USDCAD is best optimized for H1.");
+      }
+      else if(StringFind(symbol, "GBPUSD") >= 0)
+      {
+         extBandsDev = 1.8; extADXThreshold = 25; presetStatus = "GBPUSD Opt (H1)";
+         if(_Period != PERIOD_H1) Print("Warning: GBPUSD is best optimized for H1.");
+      }
    }
-   else if(_Symbol == "AUDUSD#")
-   {
-      extBandsDev = 2.0;
-      extADXThreshold = 25;
-      extRSILower = 30.0; extRSIUpper = 70.0;
-      Print("AUDUSD# 最適設定を適用しました");
-   }
-   else if(_Symbol == "GBPUSD")
-   {
-      extBandsDev = 2.2;
-      extADXThreshold = 30;
-      extRSILower = 30.0; extRSIUpper = 70.0;
-      Print("GBPUSD 最適設定を適用しました");
-   }
-   else if(_Symbol == "USDCAD#")
-   {
-      extBandsDev = 2.0;
-      extADXThreshold = 30;
-      extRSILower = 35.0; extRSIUpper = 65.0;
-      Print("USDCAD# 最適設定を適用しました");
-   }
-   else {
-      PrintFormat("%s 用のプリセットがないため、デフォルト設定を使用します", _Symbol);
-   }
+
+   PrintFormat("%s: Setup Loaded (%s - Dev: %.1f, ADX: %d)", _Symbol, presetStatus, extBandsDev, extADXThreshold);
 
    // --- チャート上に設定を表示 (確認用)
    string comment = StringFormat(
       "=== BollingerReverseEA_Hyper v1.02 ===\n"+
       "Symbol: %s\n"+
+      "Status: %s\n"+
       "BandsDev: %.1f\n"+
       "RSI Upper/Lower: %.1f / %.1f\n"+
       "ADX Threshold: %d\n"+
       "Risk: %.1f%%",
-      _Symbol, extBandsDev, extRSIUpper, extRSILower, extADXThreshold, InpRiskPercent
+      _Symbol, presetStatus, extBandsDev, extRSIUpper, extRSILower, extADXThreshold, InpRiskPercent
    );
    Comment(comment);
 
@@ -112,6 +123,16 @@ int OnInit()
    }
 
    trade.SetExpertMagicNumber(InpMagicNumber);
+
+   // --- 通貨ペア情報の取得
+   if(!GetSymbolCurrencies(_Symbol, baseCur, quoteCur))
+   {
+      Print("通貨情報の取得に失敗しました。ニュースフィルタが無効になる可能性があります。");
+   }
+
+   // --- 初回のニュースキャッシュ更新
+   if(InpUseNewsFilter) UpdateNewsCache();
+
    return(INIT_SUCCEEDED);
 }
 
@@ -132,6 +153,12 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   // --- ニュースフィルタチェック
+   if(InpUseNewsFilter)
+   {
+      if(CheckNewsFilter()) return; // ニュース前後の場合は処理を中断
+   }
+
    // 1バー1トレード制限
    datetime currentBar = iTime(_Symbol, _Period, 0);
    if(lastTradeBar == currentBar) return;
@@ -253,4 +280,117 @@ double CalculateLot(double slDistance)
    if(lots > maxLot) lots = maxLot;
 
    return lots;
+}
+
+//+------------------------------------------------------------------+
+//| 通貨ペアから通貨コードを取得する                                     |
+//+------------------------------------------------------------------+
+bool GetSymbolCurrencies(string symbol, string &base, string &quote)
+{
+   base = SymbolInfoString(symbol, SYMBOL_CURRENCY_BASE);
+   quote = SymbolInfoString(symbol, SYMBOL_CURRENCY_PROFIT);
+   return (base != "" && quote != "");
+}
+
+//+------------------------------------------------------------------+
+//| 経済カレンダーから重要指標のキャッシュを更新する                       |
+//+------------------------------------------------------------------+
+void UpdateNewsCache()
+{
+   ArrayFree(newsTimes);
+   datetime from = TimeTradeServer();
+   datetime to = from + InpNewsCacheDays * 86400;
+
+   MqlCalendarValue values[];
+   if(CalendarValueHistory(values, from, to) > 0)
+   {
+      for(int i = 0; i < ArraySize(values); i++)
+      {
+         MqlCalendarEvent event;
+         if(CalendarEventById(values[i].event_id, event))
+         {
+            MqlCalendarCountry country;
+            if(CalendarCountryById(event.country_id, country))
+            {
+               // 重要度が「高」で、かつ現在の通貨に関連するもの
+               if(event.importance == CALENDAR_IMPORTANCE_HIGH && 
+                  (country.currency == baseCur || country.currency == quoteCur))
+               {
+                  int size = ArraySize(newsTimes);
+                  ArrayResize(newsTimes, size + 1);
+                  newsTimes[size] = values[i].time;
+               }
+            }
+         }
+      }
+   }
+   ArraySort(newsTimes);
+   lastNewsUpdate = TimeTradeServer();
+   PrintFormat("News Cache Updated: %d high-impact events found.", ArraySize(newsTimes));
+}
+
+//+------------------------------------------------------------------+
+//| ニュースの影響範囲にいるかチェックし、必要なら決済・停止する             |
+//+------------------------------------------------------------------+
+bool CheckNewsFilter()
+{
+   datetime now = TimeTradeServer();
+
+   // 日付が変わったタイミング、またはキャッシュが空の場合のみ更新
+   MqlDateTime dt_now, dt_last;
+   TimeToStruct(now, dt_now);
+   TimeToStruct(lastNewsUpdate, dt_last);
+
+   if(dt_now.day != dt_last.day || (ArraySize(newsTimes) == 0 && now - lastNewsUpdate > 3600)) 
+   {
+      UpdateNewsCache();
+   }
+
+   bool restricted = false;
+   int beforeSec = InpNewsMinsBefore * 60;
+   int afterSec = InpNewsMinsAfter * 60;
+
+   for(int i = 0; i < ArraySize(newsTimes); i++)
+   {
+      // 指標の前後範囲内かチェック
+      if(now >= newsTimes[i] - beforeSec && now <= newsTimes[i] + afterSec)
+      {
+         restricted = true;
+         // 指標の直前（B案：決済）
+         if(now >= newsTimes[i] - beforeSec && now < newsTimes[i])
+         {
+            if(PositionsTotal() > 0)
+            {
+               Print("High-impact news is coming. Closing all positions.");
+               CloseAllPositions();
+            }
+         }
+         break;
+      }
+      // すでに過ぎた古い指標を配列から削除して最適化（任意）
+      if(now > newsTimes[i] + afterSec + 3600)
+      {
+         // 簡易化のためここでは削除せず、UpdateNewsCacheで一掃されるのを待つ
+      }
+   }
+
+   return restricted;
+}
+
+//+------------------------------------------------------------------+
+//| このEAが持つポジションをすべて決済する                               |
+//+------------------------------------------------------------------+
+void CloseAllPositions()
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(PositionSelectByTicket(ticket))
+      {
+         if(PositionGetInteger(POSITION_MAGIC) == InpMagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol)
+         {
+            trade.PositionClose(ticket);
+         }
+      }
+   }
 }
