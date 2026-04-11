@@ -1,0 +1,17 @@
+<chart>
+windows_total=1
+<expert>
+name=Active\BollingerHyper\BollingerReverseEA_Hyper
+path=Experts\Active\BollingerHyper\BollingerReverseEA_Hyper.ex5
+expertmode=1
+<inputs>
+InpMagicNumber=10101
+InpRiskPercent=2.0
+</inputs>
+</expert>
+<window>
+<indicator>
+name=Main
+</indicator>
+</window>
+</chart>

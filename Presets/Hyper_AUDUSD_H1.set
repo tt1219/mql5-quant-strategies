@@ -1,0 +1,10 @@
+InpUseMM=true
+InpRiskPercent=2.0
+InpFixedLot=0.01
+InpStopLossPips=30
+InpTakeProfitPips=15
+InpSLMultiplier=2.0
+InpTPMultiplier=1.0
+InpDeviations=2.0
+InpADXThreshold=25
+InpMagicNumber=202404102
