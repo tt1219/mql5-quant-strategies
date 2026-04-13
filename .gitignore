@@ -46,3 +46,6 @@ Profiles/SymbolSets/
 
 # Knowledge items for AI agents (Optional: keep if you want to track them)
 #!.agents/
+
+# Temporary archives
+_temp_archive/
