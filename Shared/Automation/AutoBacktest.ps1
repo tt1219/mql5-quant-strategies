@@ -11,19 +11,30 @@ param (
     [int]$UseNewsFilter = 1,
     [string]$ExtraInputs = "", # 追加のパラメータ文字列 (InpA=1;InpB=2)
     [string]$FromDate = "2026.01.01",
-    [string]$ToDate = "2026.04.11"
+    [string]$ToDate = "2026.04.11",
+    [int]$Deposit = 100000,
+    [string]$Currency = "JPY",
+    [string]$Leverage = "1:1000",
+    [int]$Model = 0, # 0: Every tick, 1: OHLC M1, 4: Real ticks
+    [int]$Optimize = 0, # 0: Disabled, 1: Fast/Slow complete, 2: Genetic algorithm
+    [int]$Spread = 0, # 0: Current, >0: Fixed points
+    [string]$CustomSuffix = "" # カスタムサフィックス
 )
 
 $ConfigPath = Join-Path (Split-Path $PSCommandPath) "env_config.ps1"
 . $ConfigPath
 
-# Ensure MT5 is closed before starting with new config
-Write-Host "Checking for running MT5 terminal..."
-$terminals = Get-Process | Where-Object { $_.Name -eq "terminal64" }
+$SafePair = $Pair -replace '[^a-zA-Z0-9]', ''
+$SafeSuffix = $CustomSuffix -replace '[^a-zA-Z0-9]', ''
+$WorkerDir = "$env:TEMP\MT5_Worker_$SafePair`_$SafeSuffix"
+
+# Ensure previous MT5 in THIS worker is closed
+Write-Host "Checking for running MT5 in $WorkerDir..."
+$terminals = Get-Process | Where-Object { $_.Name -eq "terminal64" -and $_.Path -like "$WorkerDir*" }
 if ($terminals) {
-    Write-Host "Closing running MT5 instance to apply configuration..." -ForegroundColor Yellow
+    Write-Host "Closing worker-specific MT5 instance..." -ForegroundColor Yellow
     $terminals | Stop-Process -Force
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 2
 }
 
 $EAPaths = Get-EA-Paths -EAFolder $EAFolder -EAName $EAFile
@@ -36,16 +47,34 @@ if (!(Test-Path $FinalReportDir)) { New-Item -ItemType Directory -Path $FinalRep
 # Report ファイル名に News-Off を付与するためのサフィックス
 $Suffix = if ($BoolUseNewsFilter) { "" } else { "_NewsOFF" }
 
-# 1. 自動コンパイル
-Write-Host "Compiling Expert Advisor..." -ForegroundColor Cyan
-Start-Process -FilePath $EditorPath -ArgumentList "/compile:`"$($EAPaths.Source)`"", "/log" -Wait
+# 1. 自動コンパイルと並列用ポータブル環境の構築
+Write-Host "Preparing Isolated Worker Environment for $Pair..." -ForegroundColor Cyan
+if (!(Test-Path $WorkerDir)) {
+    # インストールフォルダとデータフォルダをマージしてポータブル環境を作成
+    $TerminalExePath = Split-Path $TerminalPath
+    robocopy $TerminalExePath $WorkerDir /E /MT:8 /XD basis /NFL /NDL /NJH /NJS | Out-Null
+}
+# 常に最新のMQL5スクリプトとアカウント設定(config)をコピー同期
+robocopy "$DataDir\MQL5" "$WorkerDir\MQL5" /E /MT:8 /XD .git .agents /NFL /NDL /NJH /NJS | Out-Null
+robocopy "$DataDir\config" "$WorkerDir\config" /E /MT:8 /NFL /NDL /NJH /NJS | Out-Null
+
+$WorkerTerminal = "$WorkerDir\terminal64.exe"
+$WorkerEditor = "$WorkerDir\metaeditor64.exe"
+$WorkerEA_Path = "$WorkerDir\MQL5\Experts\Strategies\$EAFolder\$EAFile.mq5"
+
+Write-Host "Compiling Expert Advisor in Worker..." -ForegroundColor Gray
+Start-Process -FilePath $WorkerEditor -ArgumentList "/compile:`"$WorkerEA_Path`"", "/log" -Wait
 
 # 2. バックテスト実行
 Write-Host "`n--- Testing $Pair (Risk=$Risk%, Dev=$Dev, Period=$Period, NewsFilter=$BoolUseNewsFilter) ---" -ForegroundColor Cyan
 
 $SafePair = $Pair -replace '#', '_SHARP'
-$ReportFileName = "OptReport_$($SafePair)_$($Period)_R$($Risk)_D$($Dev)_A$($ADX)$($Suffix).html"
-$IniFile = "$env:TEMP\mt5_opt_config_$($SafePair).ini"
+$BaseSuffix = if ($BoolUseNewsFilter) { "" } else { "_NewsOFF" }
+$ReportExt = if ($Optimize -gt 0) { ".xml" } else { ".html" }
+$ReportFileName = "OptReport_$($SafePair)_$($Period)_R$($Risk)_D$($Dev)_A$($ADX)$($BaseSuffix)$($CustomSuffix)$ReportExt"
+$IniFile = "$env:TEMP\mt5_opt_config_$($SafePair)_$($SafeSuffix).ini"
+# MT5 のレポート出力は MQL5/Files からの相対パス、または絶対パス
+$ReportPathForIni = "MQL5\Files\$ReportFileName"
 
 # Replace semicolons with actual newlines for the .ini file
 $ParamsForIni = $ExtraInputs -replace ';', "`r`n"
@@ -55,13 +84,15 @@ $ConfigContent = @"
 Expert=$($EAPaths.BaseName)
 Symbol=$Pair
 Period=$Period
-Model=0
+Model=$Model
+Optimization=$Optimize
 FromDate=$($FromDate)
 ToDate=$($ToDate)
-Deposit=10000
-Currency=USD
-Leverage=1:1000
-Report=$ReportFileName
+Deposit=$($Deposit)
+Currency=$($Currency)
+Leverage=$($Leverage)
+Spread=$($Spread)
+Report=$ReportPathForIni
 ReplaceReport=1
 ShutdownTerminal=1
 Visual=0
@@ -72,13 +103,13 @@ $ParamsForIni
 "@
 $ConfigContent | Out-File -FilePath $IniFile -Encoding unicode
 
-Write-Host "Starting MT5..."
-Start-Process -FilePath $TerminalPath -ArgumentList "/config:`"$IniFile`"" -Wait
+Write-Host "Starting Isolated MT5 for $Pair..."
+Start-Process -FilePath $WorkerTerminal -ArgumentList "/portable", "/config:`"$IniFile`"" -Wait
 
 # 待機とリトライ (MT5のファイル出力ラグ対策)
-$GeneratedReport = Join-Path $DataDir $ReportFileName
+$GeneratedReport = Join-Path $WorkerDir "MQL5\Files\$ReportFileName"
 $WaitCount = 0
-while (!(Test-Path $GeneratedReport) -and $WaitCount -lt 10) {
+while (!(Test-Path $GeneratedReport) -and $WaitCount -lt 20) {
     Start-Sleep -Seconds 2
     $WaitCount++
 }
@@ -88,8 +119,15 @@ if (Test-Path $GeneratedReport) {
     $FinalPath = Join-Path $FinalReportDir $ReportFileName
     Move-Item -Path $GeneratedReport -Destination $FinalPath -Force
     Write-Host "SUCCESS: Report Saved to $FinalPath" -ForegroundColor Green
+    
+    # クリーンアップ: この WorkerDir を削除
+    Write-Host "Cleaning up $WorkerDir..." -ForegroundColor Gray
+    Remove-Item -Path $WorkerDir -Recurse -Force -ErrorAction SilentlyContinue 
+    
     return $FinalPath
 } else {
     Write-Host "FAILED: Report not found." -ForegroundColor Red
+    # 失敗してもクリーンアップ
+    Remove-Item -Path $WorkerDir -Recurse -Force -ErrorAction SilentlyContinue 
     exit 1
 }

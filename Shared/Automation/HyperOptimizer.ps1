@@ -16,32 +16,40 @@ $RESULT_DIR = $EAPaths.ReportDir
 $PAIRS = @("EURUSD#", "GBPUSD", "XAUUSD#")
 $PERIODS = @("M5", "M15")
 $RISK_LEVELS = @(0.5, 1.0, 2.0)
-$DEVIATIONS = @(1.5, 2.0)
-$ADX_LEVELS = @(25, 30)
 $NEWS_MINS = 30
 
-Write-Host "`n=== Starting Grid Search for $EAFile ===" -ForegroundColor Cyan
+Write-Host "`n=== Starting Grid Search for BB Hyper ($EAFile) ===" -ForegroundColor Cyan
+
+# DEVIATION (1.5 to 2.0) と ADX (25 to 30) をMT5側の最適化機能で回すように設定
+$ExtraParams = "InpRSIPullback=1.5||1.5||0.5||2.0||Y;InpUseNews=true;InpADXThreshold=25||25||5||30||Y"
+
+$Jobs = @()
 
 foreach ($pair in $PAIRS) {
-    foreach ($period in $PERIODS) {
-        foreach ($risk in $RISK_LEVELS) {
-            foreach ($dev in $DEVIATIONS) {
-                foreach ($adx in $ADX_LEVELS) {
-                    Write-Host ">>> Run: $pair ($period) R$risk D$dev A$adx..." -ForegroundColor Yellow
-                    $ExtraParams = "InpRSIPullback=$dev;InpUseNews=true"
-                    $cmdArgs = @("-ExecutionPolicy", "Bypass", "-File", $PS_SCRIPT, 
-                                 "-EAFolder", $EAFolder, "-EAFile", $EAFile, 
-                                 "-Pair", $pair, "-Risk", $risk, 
-                                 "-Period", $period, "-ExtraInputs", $ExtraParams)
-                    
-                    try {
-                        Start-Process -FilePath "powershell.exe" -ArgumentList $cmdArgs -Wait -ErrorAction Stop
-                    } catch { continue }
-                }
+    $ScriptBlock = {
+        param($PS_SCRIPT, $EAFolder, $EAFile, $pair, $PERIODS, $RISK_LEVELS, $ExtraParams)
+        foreach ($period in $PERIODS) {
+            foreach ($risk in $RISK_LEVELS) {
+                Write-Host ">>> Run: $pair ($period) R$risk ..." -ForegroundColor Yellow
+                $cmdArgs = @("-ExecutionPolicy", "Bypass", "-File", $PS_SCRIPT, 
+                             "-EAFolder", $EAFolder, "-EAFile", $EAFile, 
+                             "-Optimize", "1",
+                             "-Pair", $pair, "-Risk", $risk, 
+                             "-Period", $period, "-ExtraInputs", $ExtraParams)
+                
+                try {
+                    Start-Process -FilePath "powershell.exe" -ArgumentList $cmdArgs -Wait -NoNewWindow -ErrorAction Stop
+                } catch { continue }
             }
         }
     }
+    $Jobs += Start-Job -ScriptBlock $ScriptBlock -ArgumentList $PS_SCRIPT, $EAFolder, $EAFile, $pair, $PERIODS, $RISK_LEVELS, $ExtraParams
 }
+
+Write-Host "Waiting for BB optimization jobs to finish..." -ForegroundColor Cyan
+Wait-Job -Job $Jobs | Out-Null
+Receive-Job -Job $Jobs
+Remove-Job -Job $Jobs
 
 # Run Aggregator
 Write-Host "`nFinalizing Report..." -ForegroundColor Cyan

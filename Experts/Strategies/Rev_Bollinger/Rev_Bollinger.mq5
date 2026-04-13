@@ -16,16 +16,19 @@
 input int      InpBandsPeriod  = 20;          // Bolinger Bands 期間
 input double   InpBandsDev     = 2.0;         // 標準偏差
 input int      InpRSIPeriod    = 14;          // RSI 期間
-input double   InpRSILower     = 35.0;        // RSI 下限
-input double   InpRSIUpper     = 65.0;        // RSI 上限
+input double   InpRSILower     = 33.0;        // RSI 下限
+input double   InpRSIUpper     = 67.0;        // RSI 上限
 input int      InpEMAPeriod    = 200;         // トレンドフィルター (EMA 200)
 input int      InpATRPeriod    = 14;          // ATR 期間
 input int      InpADXPeriod    = 14;          // ADX 期間
-input int      InpADXThreshold = 25;          // ADX しきい値
+input int      InpADXThreshold = 20;          // ADX しきい値
 input double   InpSLMultiplier = 1.2;         // ストップロス倍率
 input double   InpTPMultiplier = 1.0;         // 利確倍率
 input int      InpStartHour    = 8;           // 開始時間 (GMT)
 input int      InpEndHour      = 22;          // 終了時間 (GMT)
+input bool     InpUseEMAFilter = true;        // EMAトレンドフィルターを使用
+input bool     InpUseADXFilter = true;        // ADXレンジフィルターを使用
+input bool     InpUseNews      = true;        // ニュースフィルタ
 input bool     InpUseMM        = true;        // 資金管理を使用
 input double   InpRiskPercent  = 2.0;         // 1トレードあたりの許容リスク (%)
 input double   InpMinLot       = 0.01;        // 最小ロット
@@ -33,7 +36,6 @@ input bool     InpUseMidClose  = true;        // 中央線で利確する
 input int      InpMaxSpread    = 30;          // 許容最大スプレッド
 input long     InpMagicNumber  = 400000;      // マジックナンバー
 input bool     InpAutoPreset   = true;        // オートプリセットを使用
-input bool     InpUseNews      = true;        // ニュースフィルタ
 
 //--- ライブラリ
 CTrade          trade;
@@ -66,9 +68,9 @@ int OnInit()
    {
       string symbol = _Symbol;
       StringToUpper(symbol);
-      if(StringFind(symbol, "EURUSD") >= 0) { extBandsDev = 1.5; extADXThreshold = 25; }
-      else if(StringFind(symbol, "AUDUSD") >= 0) { extBandsDev = 1.5; extADXThreshold = 25; }
-      else if(StringFind(symbol, "USDCAD") >= 0) { extBandsDev = 1.5; extADXThreshold = 30; }
+      if(StringFind(symbol, "EURUSD") >= 0) { extBandsDev = 2.0; extADXThreshold = 20; extRSILower = 33.0; extRSIUpper = 67.0; }
+      else if(StringFind(symbol, "AUDUSD") >= 0) { extBandsDev = 1.8; extADXThreshold = 25; }
+      else if(StringFind(symbol, "USDCAD") >= 0) { extBandsDev = 2.0; extADXThreshold = 30; }
       else if(StringFind(symbol, "GBPUSD") >= 0) { extBandsDev = 1.8; extADXThreshold = 30; }
    }
 
@@ -148,14 +150,18 @@ void OnTick()
    if(hasPosition) return;
 
    // エントリー
-   if(close1 < lower[0] && rsi[0] < extRSILower && close1 > ema[0] && adx[0] < extADXThreshold)
+   bool emaBuy  = !InpUseEMAFilter || (close1 > ema[0]);
+   bool emaSell = !InpUseEMAFilter || (close1 < ema[0]);
+   bool adxCond = !InpUseADXFilter || (adx[0] < extADXThreshold);
+
+   if(close1 < lower[0] && rsi[0] < extRSILower && emaBuy && adxCond)
    {
       double sl = ask - (atr[0] * InpSLMultiplier);
       double tp = ask + (atr[0] * InpTPMultiplier);
       double lots = riskManager.CalculateLot(atr[0] * InpSLMultiplier);
       if(trade.Buy(lots, _Symbol, ask, sl, tp, "Rev Bollinger Buy")) lastTradeBar = currentBar;
    }
-   else if(close1 > upper[0] && rsi[0] > extRSIUpper && close1 < ema[0] && adx[0] < extADXThreshold)
+   else if(close1 > upper[0] && rsi[0] > extRSIUpper && emaSell && adxCond)
    {
       double sl = bid + (atr[0] * InpSLMultiplier);
       double tp = bid - (atr[0] * InpTPMultiplier);
