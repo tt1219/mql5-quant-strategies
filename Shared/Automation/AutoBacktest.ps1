@@ -76,10 +76,27 @@ $IniFile = "$env:TEMP\mt5_opt_config_$($SafePair)_$($SafeSuffix).ini"
 # MT5 のレポート出力は MQL5/Files からの相対パス、または絶対パス
 $ReportPathForIni = "MQL5\Files\$ReportFileName"
 
-# Replace semicolons with actual newlines for the .ini file
 $ParamsForIni = $ExtraInputs -replace ';', "`r`n"
+$ExpertParamsPath = ""
 
-$ConfigContent = @"
+if ($Optimize -gt 0) {
+    # .set ファイルを $env:TEMP に書き込む (WorkerDir未生成タイミング問題を回避)
+    $SetFileName = "opt_$($SafePair)_$($SafeSuffix).set"
+    $SetPath = Join-Path $env:TEMP $SetFileName
+    
+    # InpRiskPercent も含めて .set に書き出す (BOMなしASCII = MT5必須フォーマット)
+    $SetLines = @("InpRiskPercent=$Risk||$Risk||0.1||$Risk||N")
+    $SetLines += ($ExtraInputs -split ';' | Where-Object { $_ -ne '' })
+    $SetContent = $SetLines -join "`r`n"
+    [System.IO.File]::WriteAllText($SetPath, $SetContent, [System.Text.Encoding]::ASCII)
+    Write-Host "Set file written to: $SetPath" -ForegroundColor Gray
+    # MT5はExpertParametersに絶対パスを使用できる
+    $ExpertParamsPath = $SetPath
+}
+
+# 最適化時は .set ファイルで全パラメータを管理するため INI の [TesterInputs] を省略する
+if ($Optimize -gt 0) {
+    $ConfigContent = @"
 [Tester]
 Expert=$($EAPaths.BaseName)
 Symbol=$Pair
@@ -96,22 +113,47 @@ Report=$ReportPathForIni
 ReplaceReport=1
 ShutdownTerminal=1
 Visual=0
+ExpertParameters=$ExpertParamsPath
+"@
+} else {
+    $ConfigContent = @"
+[Tester]
+Expert=$($EAPaths.BaseName)
+Symbol=$Pair
+Period=$Period
+Model=$Model
+Optimization=$Optimize
+FromDate=$($FromDate)
+ToDate=$($ToDate)
+Deposit=$($Deposit)
+Currency=$($Currency)
+Leverage=$($Leverage)
+Spread=$($Spread)
+Report=$ReportPathForIni
+ReplaceReport=1
+ShutdownTerminal=1
+Visual=0
+ExpertParameters=$ExpertParamsPath
 
 [TesterInputs]
 InpRiskPercent=$Risk
 $ParamsForIni
 "@
-$ConfigContent | Out-File -FilePath $IniFile -Encoding unicode
+}
+[System.IO.File]::WriteAllText($IniFile, $ConfigContent, [System.Text.Encoding]::ASCII)
 
-Write-Host "Starting Isolated MT5 for $Pair..."
+Write-Host "Starting Isolated MT5 for $Pair (Optimization=$Optimize) [GUI Enabled for Monitoring]..."
 Start-Process -FilePath $WorkerTerminal -ArgumentList "/portable", "/config:`"$IniFile`"" -Wait
 
 # 待機とリトライ (MT5のファイル出力ラグ対策)
 $GeneratedReport = Join-Path $WorkerDir "MQL5\Files\$ReportFileName"
 $WaitCount = 0
-while (!(Test-Path $GeneratedReport) -and $WaitCount -lt 20) {
+$MaxWait = 30
+if ($Optimize -gt 0) { $MaxWait = 300 }
+while (!(Test-Path $GeneratedReport) -and $WaitCount -lt $MaxWait) {
     Start-Sleep -Seconds 2
     $WaitCount++
+    if ($WaitCount % 5 -eq 0) { Write-Host "Waiting for report ($WaitCount/$MaxWait)..." }
 }
 
 if (Test-Path $GeneratedReport) {
@@ -126,8 +168,8 @@ if (Test-Path $GeneratedReport) {
     
     return $FinalPath
 } else {
-    Write-Host "FAILED: Report not found." -ForegroundColor Red
-    # 失敗してもクリーンアップ
-    Remove-Item -Path $WorkerDir -Recurse -Force -ErrorAction SilentlyContinue 
+    Write-Host "FAILED: Report not found after $WaitCount checks. Manual investigation required in $WorkerDir" -ForegroundColor Red
+    # 失敗してもクリーンアップ (Debugのため停止)
+    # Remove-Item -Path $WorkerDir -Recurse -Force -ErrorAction SilentlyContinue 
     exit 1
 }

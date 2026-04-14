@@ -1,3 +1,5 @@
-| Symbol | TF | Risk | Dev | ADX | Trades | TPM | Profit | PF | DD% |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| EURUSD | M5 | 1% | 1.5 | 25 | 14 | 1.2 | -524.44 | 0.47 | 7.19% |
+# Backtest Report: Fol_TrendScalper
+Generated on: 2026-04-14
+
+| Status | Symbol | TF | Risk | Dev | ADX | EMA | Trades | TPM | Profit | PF | DD% |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

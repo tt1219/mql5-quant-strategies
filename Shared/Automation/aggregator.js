@@ -60,10 +60,10 @@ files.forEach(file => {
 
         const tpm = (trades / 12).toFixed(1);
 
-        // Benchmarking
+        // Benchmarking (Stage 1 Standards for Scalper Type)
         let status = '⚪';
-        if (pf >= 1.7 && trades >= 40 && drawdown <= 10.0) status = '✅ PASS';
-        else if (pf >= 1.5 && trades >= 30) status = '⚠️ WEAK';
+        if (pf >= 1.5 && trades >= 120 && drawdown <= 15.0) status = '✅ PASS';
+        else if (pf >= 1.2 && trades >= 60) status = '⚠️ WEAK';
         else status = '❌ FAIL';
 
         allResults.push({ symbol, tf, dev, adx, risk, profit, pf, trades, drawdown, tpm, status, suffix });
