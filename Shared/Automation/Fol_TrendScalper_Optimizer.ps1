@@ -24,28 +24,28 @@ Start-Sleep -Seconds 2
 
 $PAIR = "GOLD#"
 $PERIOD = "M15"
-$FROM_DATE = "2025.04.12"
-$TO_DATE = "2026.04.11"
+$FROM_DATE = "2026.01.01" # Phase C: 2026 (Proven Growth Period)
+$TO_DATE = "2026.04.16"
 
-# Construction of Optimization Ranges (Value||Start||Step||Stop||Enabled)
-$OPT_INPUTS = "InpRSIPullback=35||30||5||40||Y;InpADXThreshold=25||20||5||30||Y;InpSLMultiplier=2.0||1.5||0.5||2.5||Y;InpTPMultiplier=1.0||1.0||0.5||2.0||Y"
-# Total: 3 x 3 x 3 x 3 = 81 patterns
-$FIXED_INPUTS = "InpBETrigger=0.5||0.5||0.1||0.5||N;InpBBExpRatio=1.1||1.1||0.1||1.1||N;InpUseNews=false||false||0||false||N"
+# Stage 2 Winning Parameters + Spread Penalty (+0.5pips = 5 points)
+$OPT_INPUTS = "InpADXThreshold=12;InpRSIPullback=30.0;InpTPMultiplier=2.1;InpSLMultiplier=1.4"
+$FIXED_INPUTS = "InpUseNews=false;InpUseHTF=true;InpStartHour=1;InpEndHour=23;InpMaxSpread=100"
 
-Write-Host "`n=== Fol_TrendScalper v1.5 [GOLD NATIVE OPTIMIZATION] ===" -ForegroundColor Cyan
+Write-Host "`n=== Fol_TrendScalper v1.5 [ENVIRONMENT PROOF: 2026 - MODEL 1] ===" -ForegroundColor Green
 Write-Host "Symbol: $PAIR ($PERIOD)"
 Write-Host "Range: $FROM_DATE to $TO_DATE"
-Write-Host "Mode: Slow Complete (Grid Search)"
+Write-Host "Mode: 1-YEAR M1-OHLC (Proof of Health)"
 
 $cmdArgs = @("-ExecutionPolicy", "Bypass", "-File", $PS_SCRIPT, 
              "-EAFolder", $EAFolder, "-EAFile", $EAFile, 
              "-Pair", $PAIR, "-Period", $PERIOD,
-             "-Risk", "1.0", "-Optimize", "1", # 1: Slow Complete
+             "-Risk", "1.0", "-Optimize", "0", 
+             "-Model", "1",                    # 1-MIN OHLC (FAST PROOF)
+             "-Spread", "35",                  # Penalty Applied
              "-FromDate", $FROM_DATE, "-ToDate", $TO_DATE,
              "-ExtraInputs", "$OPT_INPUTS;$FIXED_INPUTS",
-             "-CustomSuffix", "GoldenNative")
+             "-CustomSuffix", "S2_2026_DIAG")
 
 Start-Process -FilePath "powershell.exe" -ArgumentList $cmdArgs -Wait -NoNewWindow
 
-# NOTE: Optimization generates an .xml report. Aggregator might need update to support XML.
-Write-Host "`nScan Complete. Please check the reports directory." -ForegroundColor Green
+Write-Host "`nPhase A (2023) Complete." -ForegroundColor Green
