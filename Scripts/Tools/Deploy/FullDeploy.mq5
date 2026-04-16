@@ -3,7 +3,7 @@
 //|                                  Copyright 2026, Antigravity AI |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Antigravity AI"
-#property version   "1.05"
+#property version   "1.10"
 #property strict
 #property script_show_inputs
 
@@ -14,15 +14,14 @@ enum ENUM_STRATEGY
    STRAT_FOLLOW_TREND       // 攻め: 順張りトレンドスキャル (Fol_TrendScalper)
 };
 
-input ENUM_STRATEGY InpStrategy = STRAT_REVERSE_BOLLINGER; // 展開する戦略を選択してください
+// input ENUM_STRATEGY InpStrategy = STRAT_REVERSE_BOLLINGER; // Legacy Selection (Redundant in Production)
 
 //+------------------------------------------------------------------+
 //| Script program start function                                    |
 //+------------------------------------------------------------------+
 void OnStart()
 {
-   string stratName = (InpStrategy == STRAT_REVERSE_BOLLINGER) ? "逆張りボリンジャー" : "順張りトレンドスキャル";
-   PrintFormat("HyperTrading アイアン・デプロイ v1.05 を開始します: [%s]", stratName);
+   Print("HyperTrading プロダクション・デプロイ v1.10 を開始します");
 
    // 1. 現在開いているすべてのチャートを閉じる
    long firstChart = ChartFirst();
@@ -35,17 +34,17 @@ void OnStart()
    }
 
    // 2. ターゲット銘柄の展開
+   PrintFormat("=== プロダクション・ポートフォリオを配備します ===");
+
    // --- GOLD SPECIAL ---
    // ゴールドには【10年検証完走済】のトレンドスキャルのみを配備します
    DeployChart("GOLD#", PERIOD_M15, "HyperTrend.tpl");
 
-   // --- 他の主要通貨ペアはグローバル設定に従う ---
-   DeployChart("EURUSD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M15 : PERIOD_M15);
-   DeployChart("AUDUSD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M15 : PERIOD_H1);
-   DeployChart("GBPUSD",  (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M15 : PERIOD_H1);
-   DeployChart("USDCAD#", (InpStrategy == STRAT_FOLLOW_TREND) ? PERIOD_M15 : PERIOD_H1);
+   // --- EURUSD SPECIAL ---
+   // ボリンジャー逆張りは EURUSD (M15) に集約します
+   DeployChart("EURUSD#", PERIOD_M15, "HyperTrading.tpl");
 
-   PrintFormat("[%s] のデプロイが完了しました。ゴールドは検証済みのトレンドスキャルに固定されています。", stratName);
+   PrintFormat("デプロイが完了しました。GOLD# (Trend Scalper) と EURUSD# (Reverse Bollinger) が展開されました。");
 }
 
 //+------------------------------------------------------------------+
@@ -56,7 +55,8 @@ void DeployChart(string symbol, ENUM_TIMEFRAMES period, string templateOverride=
    string tplName = templateOverride;
    if(tplName == "")
    {
-      tplName = (InpStrategy == STRAT_REVERSE_BOLLINGER) ? "HyperTrading.tpl" : "HyperTrend.tpl";
+      // デフォルト（フォールバック用）
+      tplName = "HyperTrend.tpl";
    }
    
    PrintFormat("展開: %s (%s) using [%s]", symbol, EnumToString(period), tplName);
