@@ -34,16 +34,17 @@ void OnStart()
 
    PrintFormat("INFO: 銘柄を特定しました: GOLD -> [%s], EURUSD -> [%s]", goldSym, eurusdSym);
 
-   // 2. 現在開いているすべてのチャートを閉じる
-   long firstChart = ChartFirst();
-   while(firstChart != -1)
+   // 1. 自分以外のチャートをすべて閉じる (以前の確実な方式)
+   long currChart = ChartID();
+   long chartID = ChartFirst();
+   while(chartID != -1)
    {
-      long nextChart = ChartNext(firstChart);
-      if(firstChart != ChartID()) ChartClose(firstChart);
-      firstChart = nextChart;
+      long nextChart = ChartNext(chartID);
+      if(chartID != currChart) ChartClose(chartID);
+      chartID = nextChart;
    }
    
-   Sleep(2000); // チャートクリーンアップ後の待機
+   Sleep(1000); 
 
    // 3. ターゲット銘柄の展開
    PrintFormat("=== プロダクション・ポートフォリオを配備します ===");
