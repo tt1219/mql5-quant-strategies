@@ -63,15 +63,26 @@ int OnInit()
    extRSILower     = InpRSILower;
    extRSIUpper     = InpRSIUpper;
 
-   // 銘柄別プリセット
+   // 銘柄別プリセット (最適化済み)
    if(InpAutoPreset)
    {
       string symbol = _Symbol;
       StringToUpper(symbol);
-      if(StringFind(symbol, "EURUSD") >= 0) { extBandsDev = 2.0; extADXThreshold = 20; extRSILower = 33.0; extRSIUpper = 67.0; }
-      else if(StringFind(symbol, "AUDUSD") >= 0) { extBandsDev = 1.8; extADXThreshold = 25; }
-      else if(StringFind(symbol, "USDCAD") >= 0) { extBandsDev = 2.0; extADXThreshold = 30; }
-      else if(StringFind(symbol, "GBPUSD") >= 0) { extBandsDev = 1.8; extADXThreshold = 30; }
+      if(StringFind(symbol, "EURUSD") >= 0) { 
+         extBandsDev = 2.0; extADXThreshold = 20; extRSILower = 33.0; extRSIUpper = 67.0; 
+      }
+      else if(StringFind(symbol, "AUDUSD") >= 0) { 
+         extBandsDev = 1.8; extADXThreshold = 25; extRSILower = 30.0; extRSIUpper = 70.0;
+      }
+      else if(StringFind(symbol, "USDCAD") >= 0) { 
+         extBandsDev = 2.0; extADXThreshold = 30; extRSILower = 30.0; extRSIUpper = 70.0;
+      }
+      else if(StringFind(symbol, "GBPUSD") >= 0) { 
+         extBandsDev = 1.6; extADXThreshold = 25; extRSILower = 35.0; extRSIUpper = 65.0;
+      }
+      else if(StringFind(symbol, "JPY") >= 0) { 
+         extBandsDev = 2.2; extADXThreshold = 20; extRSILower = 30.0; extRSIUpper = 70.0;
+      }
    }
 
    // ライブラリ初期化
