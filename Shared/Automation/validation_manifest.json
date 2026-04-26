@@ -39,7 +39,7 @@
     {
       "name": "Gold_UltimateScalper",
       "folder": "Gold_UltimateScalper",
-      "symbols": ["GOLD"],
+      "symbols": ["GOLD#"],
       "timeframes": ["M5", "M15", "M30"],
       "stages": {
         "1": { 
