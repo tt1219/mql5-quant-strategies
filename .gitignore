@@ -50,3 +50,6 @@ Profiles/SymbolSets/
 # Temporary archives
 _temp_archive/
 /temp
+
+# Ignore backtest reports
+Files/
