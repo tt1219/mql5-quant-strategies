@@ -69,15 +69,13 @@ Stop-Process -Name terminal64 -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Start-Process -FilePath $TerminalExe -ArgumentList "/config:`"$IniFile`"" -Wait -NoNewWindow
 
-# レポート移動
+# Report Move
+if ($ReportFileName -eq "") { Write-Error "ReportFileName empty"; exit 1 }
 $GeneratedReport = Join-Path $DataDir "MQL5\Files\$ReportFileName"
 if (Test-Path $GeneratedReport) {
-    $FinalPath = Join-Path $EAPaths.ReportDir $ReportFileName
     if (!(Test-Path $EAPaths.ReportDir)) { New-Item -ItemType Directory -Path $EAPaths.ReportDir }
-    Move-Item -Path $GeneratedReport -Destination $FinalPath -Force
-    Write-Host "SUCCESS: Report Saved: $FinalPath" -ForegroundColor Green
-    return $FinalPath
+    Move-Item -Path $GeneratedReport -Destination (Join-Path $EAPaths.ReportDir $ReportFileName) -Force
+    Write-Host "SUCCESS: $ReportFileName" -ForegroundColor Green
 } else {
-    Write-Host "FAILED: MT5 failed to produce report. Check $DataDir\MQL5\Logs" -ForegroundColor Red
-    exit 1
+    Write-Host "FAILED: No report generated for $Pair" -ForegroundColor Red
 }

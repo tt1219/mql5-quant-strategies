@@ -1,0 +1,52 @@
+{
+  "strategies": [
+    {
+      "name": "Fol_TrendScalper",
+      "folder": "Fol_TrendScalper",
+      "symbols": ["GOLD#", "GBPUSD#", "USDJPY#", "EURJPY#", "GBPJPY#", "AUDUSD#", "EURUSD#", "USDCAD#", "EURGBP#"],
+      "timeframes": ["M5", "M15", "M30", "H1"],
+      "stages": {
+        "1": { 
+          "from": "2025.01.01", "to": "2025.12.31", "model": 1, "risk": 1.0, "spread": 20,
+          "extraInputs": "InpADXThreshold=30;InpBBExpRatio=1.1;InpRSIPullback=30.0"
+        },
+        "2": { 
+          "from": "2023.01.01", "to": "2025.12.31", "model": 0, "risk": 1.0, "spread": 35,
+          "extraInputs": "InpADXThreshold=30;InpBBExpRatio=1.1;InpRSIPullback=30.0"
+        },
+        "3": { 
+          "from": "2016.01.01", "to": "2026.04.16", "model": 0, "risk": 1.0, "spread": 35,
+          "extraInputs": "InpADXThreshold=30;InpBBExpRatio=1.1;InpRSIPullback=30.0"
+        }
+      }
+    },
+    {
+      "name": "Rev_Bollinger",
+      "folder": "Rev_Bollinger",
+      "symbols": ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY"],
+      "timeframes": ["M15", "H1"],
+      "stages": {
+        "1": { 
+          "from": "2025.01.01", "to": "2025.12.31", "model": 1, "risk": 2.0, "spread": 15,
+          "extraInputs": "InpAutoPreset=true"
+        },
+        "2": { 
+          "from": "2023.01.01", "to": "2025.12.31", "model": 0, "risk": 2.0, "spread": 25,
+          "extraInputs": "InpAutoPreset=true"
+        }
+      }
+    },
+    {
+      "name": "Gold_UltimateScalper",
+      "folder": "Gold_UltimateScalper",
+      "symbols": ["GOLD"],
+      "timeframes": ["M5", "M15", "M30"],
+      "stages": {
+        "1": { 
+          "from": "2026.01.01", "to": "2026.04.26", "model": 0, "risk": 1.0, "spread": 35,
+          "extraInputs": "InpStopLoss=250;InpTakeProfit=500;InpMaxSpread=100;InpSlippage=50;InpAsianEnabled=true;InpBreakoutEnabled=true;InpLiquidityEnabled=true"
+        }
+      }
+    }
+  ]
+}

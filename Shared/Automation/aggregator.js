@@ -19,30 +19,24 @@ files.forEach(file => {
     try {
         const content = fs.readFileSync(path.join(resultsDir, file), 'utf16le');
         
-        // Regex for filename parsing: OptReport_USDJPY_SHARP_M30_R2_D1.5_A25_Ph2_EMAtrue_A20_D1.4.html
-        const regex = /OptReport_(.+?)_(.+?)_R([\d.]+)_D([\d.]+)_A(\d+)(.*)\.html/;
+        // Regex to extract Symbol, TF, Risk, and Stage from filename
+        // Filename example: OptReport_GBPUSD_SHARP_M15_R1STAGE1.html
+        const regex = /OptReport_(.+?)_(M[1-5]+|H[1-4]|D1)_R(.+?)(STAGE\d+)?\.html/;
         const match = file.match(regex);
         if (!match) return;
 
         let symbol = match[1];
         let tf = match[2];
         let risk = match[3];
-        let dev = match[4];
-        let adx = match[5];
-        let suffix = match[6]; // _Ph2_EMAtrue_A20_D1.4 etc
+        let suffix = match[4] || ""; 
 
-        // Override logic for Phase 2 optimization suffix
-        if (suffix.includes('Ph2') || suffix.includes('EMA')) {
-            const emaMatch = suffix.match(/EMA(true|false)/);
-            const adxMatch = suffix.match(/_A(\d+)/);
-            const devMatch = suffix.match(/_D([\d.]+)/);
+        let dev = "N/A";
+        let adx = "N/A";
 
-            if (emaMatch) {
-                const emaVal = (emaMatch[1] === 'true') ? 'EMA ON' : 'EMA OFF';
-                suffix = emaVal; 
-            }
-            if (adxMatch) adx = adxMatch[1];
-            if (devMatch) dev = devMatch[1];
+        // Extract more info from suffix if possible
+        if (suffix.includes('STAGE')) {
+            const stageMatch = suffix.match(/STAGE(\d+)/);
+            if (stageMatch) suffix = `Stage ${stageMatch[1]}`;
         }
 
         // Extract Values from HTML
