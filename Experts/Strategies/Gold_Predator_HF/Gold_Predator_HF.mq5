@@ -5,24 +5,24 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Gemini CLI Agent"
 #property link      "https://www.mql5.com"
-#property version   "0.6.0"
+#property version   "1.1.0"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- v0.6.0 Price Action & Hyper BE Constants
-#define MAX_SPREAD_ALLOWED 80
-#define RISK_PERCENT 1.0
+//--- v1.1.0 "The Sharp Edge" - Restored to v0.6.0 performance logic
+#define MAX_SPREAD_ALLOWED 100
+#define RISK_PERCENT 2.0
 #define ATR_SL_MULT 1.5
 #define ATR_TP_MULT 2.5
 
-//--- Hyper BE Settings (User Requested Tightness)
-#define BE_START_POINTS 300   // 30 points (3.0 USD in Gold terms)
-#define BE_TARGET_POINTS 100  // 10 points (1.0 USD protection)
+//--- Hyper Fast BE (The key to PF 2.10)
+#define BE_START_POINTS 300   // 3.0 USD profit triggers BE
+#define BE_TARGET_POINTS 100  // Lock in 1.0 USD profit
 
-//--- UTC Trading Hours
+//--- Trading Sessions (UTC)
 #define UTC_START_HOUR 7
 #define UTC_END_HOUR   17
 
@@ -41,8 +41,6 @@ int OnInit()
    handleATR    = iATR(_Symbol, _Period, 14);
    handleEMA_H1 = iMA(_Symbol, PERIOD_H1, 20, 0, MODE_EMA, PRICE_CLOSE);
    
-   if(handleATR == INVALID_HANDLE || handleEMA_H1 == INVALID_HANDLE) return(INIT_FAILED);
-
    trade.SetExpertMagicNumber(InpMagic);
    riskManager.Init(_Symbol, true, RISK_PERCENT, 0.1);
    newsFilter.Init(_Symbol, InpMagic, true, 60, 60, 7);
@@ -73,7 +71,7 @@ void OnTick()
    if(CopyLow(_Symbol, _Period, 1, 1, low) <= 0) return;
    if(CopyClose(_Symbol, _Period, 0, 1, close) <= 0) return;
 
-   // 2. ENTRY LOGIC (Pure Price Action + UTC Filter)
+   // 2. ENTRY LOGIC (Pure Price Action Breakout)
    if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar && dt_utc.hour >= UTC_START_HOUR && dt_utc.hour < UTC_END_HOUR)
    {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -81,40 +79,33 @@ void OnTick()
       double slPoints = atr[0] * ATR_SL_MULT;
       double tpPoints = atr[0] * ATR_TP_MULT;
 
-      // Price Breakout of Previous M5 Bar
+      // BUY: H1 Trend UP + Break M5 High
       if(close[0] > h1EMA[0] && close[0] > high[0]) {
-         if(trade.Buy(riskManager.CalculateLot(slPoints/_Point), _Symbol, ask, ask - slPoints, ask + tpPoints, "v0.6.0_PA_B"))
+         if(trade.Buy(riskManager.CalculateLot(slPoints/_Point), _Symbol, ask, ask - slPoints, ask + tpPoints, "v1.1.0_SHARP_B"))
             g_lastTradeBar = currentBarTime;
       }
+      // SELL: H1 Trend DOWN + Break M5 Low
       else if(close[0] < h1EMA[0] && close[0] < low[0]) {
-         if(trade.Sell(riskManager.CalculateLot(slPoints/_Point), _Symbol, bid, bid + slPoints, bid - tpPoints, "v0.6.0_PA_S"))
+         if(trade.Sell(riskManager.CalculateLot(slPoints/_Point), _Symbol, bid, bid + slPoints, bid - tpPoints, "v1.1.0_SHARP_S"))
             g_lastTradeBar = currentBarTime;
       }
    }
    
-   // 3. HYPER FAST PROTECTION
-   ManageExits();
-}
-
-void ManageExits()
-{
+   // 3. HYPER FAST PROTECTION (Manage existing position)
    for(int i=PositionsTotal()-1; i>=0; i--)
    {
       if(PositionSelectByTicket(PositionGetTicket(i)) && PositionGetInteger(POSITION_MAGIC) == InpMagic)
       {
-         double open = PositionGetDouble(POSITION_PRICE_OPEN);
-         double cur = PositionGetDouble(POSITION_PRICE_CURRENT);
-         double sl = PositionGetDouble(POSITION_SL);
+         double p_open = PositionGetDouble(POSITION_PRICE_OPEN);
+         double p_cur = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double p_sl = PositionGetDouble(POSITION_SL);
          
-         // Hyper Fast Break Even
          if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) {
-            if(sl < open && cur > open + BE_START_POINTS * _Point) {
-               trade.PositionModify(PositionGetTicket(i), open + BE_TARGET_POINTS * _Point, PositionGetDouble(POSITION_TP));
-            }
+            if(p_sl < p_open && p_cur > p_open + BE_START_POINTS * _Point)
+               trade.PositionModify(PositionGetTicket(i), p_open + BE_TARGET_POINTS * _Point, PositionGetDouble(POSITION_TP));
          } else {
-            if((sl > open || sl == 0) && cur < open - BE_START_POINTS * _Point) {
-               trade.PositionModify(PositionGetTicket(i), open - BE_TARGET_POINTS * _Point, PositionGetDouble(POSITION_TP));
-            }
+            if((p_sl > p_open || p_sl == 0) && p_cur < p_open - BE_START_POINTS * _Point)
+               trade.PositionModify(PositionGetTicket(i), p_open - BE_TARGET_POINTS * _Point, PositionGetDouble(POSITION_TP));
          }
       }
    }
