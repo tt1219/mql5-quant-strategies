@@ -5,23 +5,24 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Gemini CLI Agent"
 #property link      "https://www.mql5.com"
-#property version   "1.3.1"
+#property version   "1.3.2"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- Gold_Predator v1.3.1 "The Hybrid King - Optimized for Spread 35"
+//--- Gold_Predator v1.3.2 "The Hybrid King - ADX Filtered"
 #define MAX_SPREAD_ALLOWED 50
+#define ADX_THRESHOLD 25
 
-input double InpTPMult        = 6.5;    // Optimized for Current Spread
+input double InpTPMult        = 6.5;    
 input double InpMomentumRatio = 1.0;    
-input double InpRiskPercent   = 3.0;    // Standard Power
+input double InpRiskPercent   = 3.0;    
 input double InpSLMult        = 1.5;
 input long   InpMagic         = 777777; 
 
-int handleATR, handleEMA_H4;
+int handleATR, handleEMA_H4, handleADX;
 CTrade trade;
 CRiskManager riskManager;
 CNewsFilter newsFilter;
@@ -30,6 +31,8 @@ datetime g_lastTradeBar = 0;
 int OnInit() {
    handleATR    = iATR(_Symbol, PERIOD_H1, 14);
    handleEMA_H4 = iMA(_Symbol, PERIOD_H4, 20, 0, MODE_EMA, PRICE_CLOSE);
+   handleADX    = iADX(_Symbol, PERIOD_H1, 14);
+   
    trade.SetExpertMagicNumber(InpMagic);
    riskManager.Init(_Symbol, true, InpRiskPercent, 0.01);
    newsFilter.Init(_Symbol, InpMagic, true, 60, 60, 7);
@@ -37,15 +40,23 @@ int OnInit() {
    return(INIT_SUCCEEDED);
 }
 
-void OnDeinit(const int reason) { IndicatorRelease(handleATR); IndicatorRelease(handleEMA_H4); Comment(""); }
+void OnDeinit(const int reason) { 
+   IndicatorRelease(handleATR); 
+   IndicatorRelease(handleEMA_H4); 
+   IndicatorRelease(handleADX);
+   Comment(""); 
+}
 
 void DisplayStatus() {
+   double adx[];
+   CopyBuffer(handleADX, 0, 0, 1, adx);
    string status = "=== Gold Predator HF: HYBRID KING ===\n" +
-                   "Version: 1.3.1 (Spread Optimized)\n" +
+                   "Version: 1.3.2 (ADX Filtered)\n" +
                    "-----------------------------------\n" +
+                   "ADX: " + DoubleToString(adx[0], 1) + " (Min: " + (string)ADX_THRESHOLD + ")\n" +
                    "TP Multiplier: " + DoubleToString(InpTPMult, 1) + "\n" +
                    "Risk Percent: " + DoubleToString(InpRiskPercent, 1) + "%\n" +
-                   "Status: " + (newsFilter.IsRestricted() ? "NEWS RESTRICTED" : "ACTIVE") + "\n";
+                   "Status: " + (newsFilter.IsRestricted() ? "NEWS RESTRICTED" : (adx[0] < ADX_THRESHOLD ? "RANGING" : "TRENDING")) + "\n";
    Comment(status);
 }
 
@@ -55,13 +66,18 @@ void OnTick() {
    if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > MAX_SPREAD_ALLOWED) return;
 
    datetime currentBarTime = iTime(_Symbol, PERIOD_H1, 0);
-   double h4EMA[], atr[], high[], low[], open[], close_prev[];
+   double h4EMA[], atr[], high[], low[], open[], close_prev[], adx[];
    ArraySetAsSeries(h4EMA, true); ArraySetAsSeries(atr, true);
    ArraySetAsSeries(high, true); ArraySetAsSeries(low, true); 
    ArraySetAsSeries(open, true); ArraySetAsSeries(close_prev, true);
+   ArraySetAsSeries(adx, true);
 
    if(CopyBuffer(handleEMA_H4, 0, 0, 1, h4EMA) <= 0) return;
    if(CopyBuffer(handleATR, 0, 0, 1, atr) <= 0) return;
+   if(CopyBuffer(handleADX, 0, 0, 1, adx) <= 0) return;
+   
+   // TREND FILTER: Only trade if trend is strong
+   if(adx[0] < ADX_THRESHOLD) return;
    if(CopyHigh(_Symbol, PERIOD_H1, 1, 1, high) <= 0) return;
    if(CopyLow(_Symbol, PERIOD_H1, 1, 1, low) <= 0) return;
    if(CopyOpen(_Symbol, PERIOD_H1, 1, 1, open) <= 0) return;
