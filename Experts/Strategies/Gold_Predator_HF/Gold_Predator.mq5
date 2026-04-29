@@ -5,24 +5,24 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Gemini CLI Agent"
 #property link      "https://www.mql5.com"
-#property version   "1.1.0"
+#property version   "1.2.0"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- Gold_Predator Official Release v1.1.0 "Safety First"
-//--- Improved: Added ATR Trailing Stop to smooth out drawdown and protect initial capital.
+//--- Gold_Predator Official Release v1.2.0 "Apex Power"
+//--- Restored: High-reward trend following without trailing stops to maximize Gold trends.
 #define MAX_SPREAD_ALLOWED 50
 #define ATR_SL_MULT 1.5
-#define ATR_TP_MULT 4.5    // Slightly extended to compensate for tighter trailing
+#define ATR_TP_MULT 4.0    // Capture the major swings
 
 #define MIN_MOMENTUM_RATIO 1.5 
-#define TS_ACTIVATION_MULT 2.0 // Start trailing after 2x ATR profit
-#define TS_DISTANCE_MULT   1.5 // Trail at 1.5x ATR distance
+#define UTC_START_HOUR 0
+#define UTC_END_HOUR   23
 
-input double InpRiskPercent = 1.5;   // Lowered to 1.5% for drawdown protection
+input double InpRiskPercent = 3.0;   // High reward configuration
 input long   InpMagic       = 100001;
 
 int handleATR, handleEMA_H4;
@@ -71,7 +71,7 @@ void OnTick()
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
-   // 1. ENTRY
+   // 1. ENTRY (Pure trend capture)
    if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar)
    {
       if(body < atr[0] * MIN_MOMENTUM_RATIO) return;
@@ -81,36 +81,13 @@ void OnTick()
       double lot = riskManager.CalculateLot(slPoints / _Point);
 
       if(ask > high[0] && ask > h4EMA[0]) {
-         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "Predator_v11"))
+         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "Apex_v12"))
             g_lastTradeBar = currentBarTime;
       }
       else if(bid < low[0] && bid < h4EMA[0]) {
-         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "Predator_v11"))
+         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "Apex_v12"))
             g_lastTradeBar = currentBarTime;
       }
    }
-
-   // 2. SAFETY: ATR TRAILING STOP
-   for(int i=PositionsTotal()-1; i>=0; i--)
-   {
-      if(PositionSelectByTicket(PositionGetTicket(i)) && PositionGetInteger(POSITION_MAGIC) == InpMagic)
-      {
-         double p_open = PositionGetDouble(POSITION_PRICE_OPEN);
-         double p_cur = PositionGetDouble(POSITION_PRICE_CURRENT);
-         double p_sl = PositionGetDouble(POSITION_SL);
-         double ts_dist = atr[0] * TS_DISTANCE_MULT;
-         
-         if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) {
-            if(p_cur > p_open + atr[0] * TS_ACTIVATION_MULT) {
-               double new_sl = p_cur - ts_dist;
-               if(new_sl > p_sl) trade.PositionModify(PositionGetTicket(i), new_sl, PositionGetDouble(POSITION_TP));
-            }
-         } else {
-            if(p_cur < p_open - atr[0] * TS_ACTIVATION_MULT) {
-               double new_sl = p_cur + ts_dist;
-               if(new_sl < p_sl || p_sl == 0) trade.PositionModify(PositionGetTicket(i), new_sl, PositionGetDouble(POSITION_TP));
-            }
-         }
-      }
-   }
+   // Trailing stop logic removed to allow Gold to reach peak TP.
 }
