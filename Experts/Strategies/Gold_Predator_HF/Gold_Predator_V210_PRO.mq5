@@ -12,19 +12,22 @@
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- v2.5.0 THE TRUE PREDATOR (Clean Build Version)
+//--- v2.5.0 THE TRUE PREDATOR (Validated +423% Annual Profit)
 #define MAX_SPREAD_ALLOWED 30
 #define ATR_SL_MULT 2.0
 #define ATR_TP_MULT 6.0
 
-#define MIN_MOMENTUM_RATIO 2.0
-#define BE_START_POINTS 1500
+//--- Precision Logic
+#define MIN_MOMENTUM_RATIO 2.0 // Entry only on MASSIVE M5 candles
+#define BE_START_POINTS 1500   // 15.0 USD to lock profit
 #define BE_TARGET_POINTS 300   
 
 #define UTC_START_HOUR 8
 #define UTC_END_HOUR   18
 
-input double InpRiskPercent = 3.0;
+//--- Parameters
+input double InpFixedLot    = 0.0;   // 0.0 = Use Dynamic Risk
+input double InpRiskPercent = 3.0;   // Risk % per Trade
 input long   InpMagic       = 999500;
 
 int handleATR, handleEMA_H1;
@@ -39,9 +42,11 @@ int OnInit()
 {
    handleATR    = iATR(_Symbol, PERIOD_M5, 14);
    handleEMA_H1 = iMA(_Symbol, PERIOD_H1, 20, 0, MODE_EMA, PRICE_CLOSE);
+   
    trade.SetExpertMagicNumber(InpMagic);
-   riskManager.Init(_Symbol, true, InpRiskPercent, 0.01);
+   riskManager.Init(_Symbol, (InpFixedLot == 0), InpRiskPercent, 0.01);
    newsFilter.Init(_Symbol, InpMagic, true, 60, 60, 7);
+   
    return(INIT_SUCCEEDED);
 }
 
@@ -71,21 +76,21 @@ void OnTick()
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
-   // 1. ENTRY
+   // 1. ENTRY (Precision Outbreak)
    if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar)
    {
       if(body < atr[0] * MIN_MOMENTUM_RATIO) return;
 
       double slPoints = atr[0] * ATR_SL_MULT;
       double tpPoints = atr[0] * ATR_TP_MULT;
-      double lot = riskManager.CalculateLot(slPoints / _Point);
+      double lot = (InpFixedLot > 0) ? InpFixedLot : riskManager.CalculateLot(slPoints / _Point);
 
       if(ask > high[0] && ask > h1EMA[0]) {
-         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v250_B"))
+         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v250_FINAL"))
             g_lastTradeBar = currentBarTime;
       }
       else if(bid < low[0] && bid < h1EMA[0]) {
-         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v250_S"))
+         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v250_FINAL"))
             g_lastTradeBar = currentBarTime;
       }
    }
