@@ -1,0 +1,36 @@
+<chart>
+windows_total=1
+<expert>
+name=Strategies\Gold_Predator_HF\Gold_Predator
+path=Experts\Strategies\Gold_Predator_HF\Gold_Predator.ex5
+expertmode=1
+<inputs>
+InpTPMult=6.5
+InpMomentumRatio=1.0
+InpRiskPercent=3.0
+InpSLMult=1.5
+InpMagic=777777
+</inputs>
+</expert>
+<window>
+height=100
+fixed_height=0
+<indicator>
+name=Main
+<object>
+type=102
+name=PredatorBanner
+font_name=Segoe UI
+font_size=12
+color=65535
+anchor=0
+angle=0.00
+x_distance=20
+y_distance=20
+hidden=1
+editable=0
+tooltip=Gold Predator HF Active
+</object>
+</indicator>
+</window>
+</chart>

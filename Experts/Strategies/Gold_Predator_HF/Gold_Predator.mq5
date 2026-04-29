@@ -5,54 +5,56 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Gemini CLI Agent"
 #property link      "https://www.mql5.com"
-#property version   "1.3.0"
+#property version   "1.3.1"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- Gold_Predator v1.3.0 "The Hybrid King"
-//--- Optimized for 100k -> 1M JPY in < 6 months based on backtest.
+//--- Gold_Predator v1.3.1 "The Hybrid King - Optimized for Spread 35"
 #define MAX_SPREAD_ALLOWED 50
 
-input double InpTPMult        = 6.0;    // Mega Trend setting
-input double InpMomentumRatio = 1.0;    // High Frequency setting
-input double InpRiskPercent   = 3.0;    // Compounding Power
+input double InpTPMult        = 6.5;    // Optimized for Current Spread
+input double InpMomentumRatio = 1.0;    
+input double InpRiskPercent   = 3.0;    // Standard Power
 input double InpSLMult        = 1.5;
-input long   InpMagic         = 777777; // Lucky Magic for Hybrid King
+input long   InpMagic         = 777777; 
 
 int handleATR, handleEMA_H4;
 CTrade trade;
 CRiskManager riskManager;
 CNewsFilter newsFilter;
-
 datetime g_lastTradeBar = 0;
 
-//+------------------------------------------------------------------+
-int OnInit()
-{
+int OnInit() {
    handleATR    = iATR(_Symbol, PERIOD_H1, 14);
    handleEMA_H4 = iMA(_Symbol, PERIOD_H4, 20, 0, MODE_EMA, PRICE_CLOSE);
-   
    trade.SetExpertMagicNumber(InpMagic);
    riskManager.Init(_Symbol, true, InpRiskPercent, 0.01);
    newsFilter.Init(_Symbol, InpMagic, true, 60, 60, 7);
-   
-   Print("EA_LOAD: v1.3.0 HYBRID KING. Targeting 1M JPY with maximum precision.");
+   DisplayStatus();
    return(INIT_SUCCEEDED);
 }
 
-void OnDeinit(const int reason) { IndicatorRelease(handleATR); IndicatorRelease(handleEMA_H4); }
+void OnDeinit(const int reason) { IndicatorRelease(handleATR); IndicatorRelease(handleEMA_H4); Comment(""); }
 
-//+------------------------------------------------------------------+
-void OnTick()
-{
+void DisplayStatus() {
+   string status = "=== Gold Predator HF: HYBRID KING ===\n" +
+                   "Version: 1.3.1 (Spread Optimized)\n" +
+                   "-----------------------------------\n" +
+                   "TP Multiplier: " + DoubleToString(InpTPMult, 1) + "\n" +
+                   "Risk Percent: " + DoubleToString(InpRiskPercent, 1) + "%\n" +
+                   "Status: " + (newsFilter.IsRestricted() ? "NEWS RESTRICTED" : "ACTIVE") + "\n";
+   Comment(status);
+}
+
+void OnTick() {
+   DisplayStatus();
    if(newsFilter.IsRestricted()) return;
    if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > MAX_SPREAD_ALLOWED) return;
 
    datetime currentBarTime = iTime(_Symbol, PERIOD_H1, 0);
-
    double h4EMA[], atr[], high[], low[], open[], close_prev[];
    ArraySetAsSeries(h4EMA, true); ArraySetAsSeries(atr, true);
    ArraySetAsSeries(high, true); ArraySetAsSeries(low, true); 
@@ -69,22 +71,16 @@ void OnTick()
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
-   // 1. HYBRID ENTRY (Catch the Waves)
-   if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar)
-   {
+   if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar) {
       if(body < atr[0] * InpMomentumRatio) return;
-
       double slPoints = atr[0] * InpSLMult;
       double tpPoints = atr[0] * InpTPMult;
       double lot = riskManager.CalculateLot(slPoints / _Point);
 
       if(ask > high[0] && ask > h4EMA[0]) {
-         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v13_KING"))
-            g_lastTradeBar = currentBarTime;
-      }
-      else if(bid < low[0] && bid < h4EMA[0]) {
-         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v13_KING"))
-            g_lastTradeBar = currentBarTime;
+         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v131_KING")) g_lastTradeBar = currentBarTime;
+      } else if(bid < low[0] && bid < h4EMA[0]) {
+         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v131_KING")) g_lastTradeBar = currentBarTime;
       }
    }
 }

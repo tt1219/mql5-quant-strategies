@@ -20,19 +20,17 @@ void OnStart()
 
    // 1. シンボルの自動特定
    string goldSym = FindVerifiedSymbol("GOLD");
-   string eurusdSym = FindVerifiedSymbol("EURUSD");
    
-   if(goldSym == "" || eurusdSym == "")
+   if(goldSym == "")
    {
       string msg = "深刻なエラー: ターゲット銘柄を特定できませんでした。\n";
-      if(goldSym == "") msg += " - GOLD 系の銘柄が見つかりません\n";
-      if(eurusdSym == "") msg += " - EURUSD 系の銘柄が見つかりません\n";
+      msg += " - GOLD 系の銘柄が見つかりません\n";
       Alert(msg);
       Print(msg);
       return;
    }
 
-   PrintFormat("INFO: 銘柄を特定しました: GOLD -> [%s], EURUSD -> [%s]", goldSym, eurusdSym);
+   PrintFormat("INFO: 銘柄を特定しました: GOLD -> [%s]", goldSym);
 
    // 1. すべてのチャートを閉じる (安定版の挙動を完全復元)
    long chartID = ChartFirst();
@@ -46,14 +44,13 @@ void OnStart()
    Sleep(500); 
 
    // 3. ターゲット銘柄の展開
-   PrintFormat("=== プロダクション・ポートフォリオを配備します ===");
+   PrintFormat("=== Gold Predator HF 特化型ポートフォリオを配備します ===");
 
-   // 順序：EURUSD -> GOLD (安定版の順序)
-   DeployChart(eurusdSym, PERIOD_M15, "HyperTrading.tpl");
-   DeployChart(goldSym, PERIOD_M15, "HyperTrend.tpl");
+   // Gold Predator は H1 推奨
+   DeployChart(goldSym, PERIOD_H1, "Gold_Predator.tpl");
 
-   PrintFormat("デプロイが完了しました。[%s] と [%s] のチャート設定を確認してください。", goldSym, eurusdSym);
-   Alert("デプロイ完了: " + goldSym + " & " + eurusdSym);
+   PrintFormat("デプロイが完了しました。[%s] のチャート設定を確認してください。", goldSym);
+   Alert("デプロイ完了: " + goldSym + " (Gold Predator HF)");
 }
 
 //+------------------------------------------------------------------+
