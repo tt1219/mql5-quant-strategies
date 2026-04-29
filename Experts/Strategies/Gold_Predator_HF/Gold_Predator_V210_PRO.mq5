@@ -5,29 +5,27 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Gemini CLI Agent"
 #property link      "https://www.mql5.com"
-#property version   "2.4.0"
+#property version   "2.5.0"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <AppCore\RiskManager.mqh>
 #include <AppCore\NewsFilter.mqh>
 
-//--- v2.4.0 PROFESSIONAL EDGE (Final Release)
-#define MAX_SPREAD_ALLOWED 40
-#define ATR_SL_MULT 1.5
-#define ATR_TP_MULT 5.0
+//--- v2.5.0 THE TRUE PREDATOR (Clean Build Version)
+#define MAX_SPREAD_ALLOWED 30
+#define ATR_SL_MULT 2.0
+#define ATR_TP_MULT 6.0
 
-#define MIN_MOMENTUM_RATIO 1.2
-#define BE_START_POINTS 1000
-#define BE_TARGET_POINTS 200
+#define MIN_MOMENTUM_RATIO 2.0
+#define BE_START_POINTS 1500
+#define BE_TARGET_POINTS 300   
 
-#define UTC_START_HOUR 7
-#define UTC_END_HOUR   20
+#define UTC_START_HOUR 8
+#define UTC_END_HOUR   18
 
-//--- Parameters
-input double InpFixedLot    = 0.0;   // 固定ロット (0.0で複利)
-input double InpRiskPercent = 2.0;   // 1トレードの許容損失(%)
-input long   InpMagic       = 999100;
+input double InpRiskPercent = 3.0;
+input long   InpMagic       = 999500;
 
 int handleATR, handleEMA_H1;
 CTrade trade;
@@ -41,13 +39,9 @@ int OnInit()
 {
    handleATR    = iATR(_Symbol, PERIOD_M5, 14);
    handleEMA_H1 = iMA(_Symbol, PERIOD_H1, 20, 0, MODE_EMA, PRICE_CLOSE);
-   
    trade.SetExpertMagicNumber(InpMagic);
-   // 資金管理の初期化
-   riskManager.Init(_Symbol, (InpFixedLot == 0), InpRiskPercent, 0.01);
-   // ニュースフィルタの初期化 (重要度：高のみ、前後60分回避)
+   riskManager.Init(_Symbol, true, InpRiskPercent, 0.01);
    newsFilter.Init(_Symbol, InpMagic, true, 60, 60, 7);
-   
    return(INIT_SUCCEEDED);
 }
 
@@ -56,53 +50,47 @@ void OnDeinit(const int reason) { IndicatorRelease(handleATR); IndicatorRelease(
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // 1. 安全装置 (指標 & スプレッド)
    if(newsFilter.IsRestricted()) return;
    if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > MAX_SPREAD_ALLOWED) return;
 
    datetime currentBarTime = iTime(_Symbol, PERIOD_M5, 0);
-   MqlDateTime dt_utc;
-   TimeGMT(dt_utc);
 
-   // 2. データの取得
-   double h1EMA[], atr[], high[], low[], close[], open[];
+   double h1EMA[], atr[], high[], low[], open[], close_prev[];
    ArraySetAsSeries(h1EMA, true); ArraySetAsSeries(atr, true);
    ArraySetAsSeries(high, true); ArraySetAsSeries(low, true); 
-   ArraySetAsSeries(close, true); ArraySetAsSeries(open, true);
+   ArraySetAsSeries(open, true); ArraySetAsSeries(close_prev, true);
 
    if(CopyBuffer(handleEMA_H1, 0, 0, 1, h1EMA) <= 0) return;
    if(CopyBuffer(handleATR, 0, 0, 1, atr) <= 0) return;
    if(CopyHigh(_Symbol, PERIOD_M5, 1, 1, high) <= 0) return;
    if(CopyLow(_Symbol, PERIOD_M5, 1, 1, low) <= 0) return;
    if(CopyOpen(_Symbol, PERIOD_M5, 1, 1, open) <= 0) return;
-   if(CopyClose(_Symbol, PERIOD_M5, 1, 1, close) <= 0) return;
+   if(CopyClose(_Symbol, PERIOD_M5, 1, 1, close_prev) <= 0) return;
 
-   double body = MathAbs(close[0] - open[0]);
+   double body = MathAbs(close_prev[0] - open[0]);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
-   // 3. エントリーロジック
-   if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar && dt_utc.hour >= UTC_START_HOUR && dt_utc.hour < UTC_END_HOUR)
+   // 1. ENTRY
+   if(PositionsTotal() == 0 && currentBarTime != g_lastTradeBar)
    {
       if(body < atr[0] * MIN_MOMENTUM_RATIO) return;
 
-      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double slPoints = atr[0] * ATR_SL_MULT;
       double tpPoints = atr[0] * ATR_TP_MULT;
-      
-      // ロットの動的計算
-      double lot = (InpFixedLot > 0) ? InpFixedLot : riskManager.CalculateLot(slPoints / _Point);
+      double lot = riskManager.CalculateLot(slPoints / _Point);
 
-      if(close[0] > h1EMA[0] && close[0] > high[0]) {
-         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v240_FINAL"))
+      if(ask > high[0] && ask > h1EMA[0]) {
+         if(trade.Buy(lot, _Symbol, ask, ask - slPoints, ask + tpPoints, "v250_B"))
             g_lastTradeBar = currentBarTime;
       }
-      else if(close[0] < h1EMA[0] && close[0] < low[0]) {
-         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v240_FINAL"))
+      else if(bid < low[0] && bid < h1EMA[0]) {
+         if(trade.Sell(lot, _Symbol, bid, bid + slPoints, bid - tpPoints, "v250_S"))
             g_lastTradeBar = currentBarTime;
       }
    }
 
-   // 4. 決済管理 (BE)
+   // 2. MANAGEMENT
    for(int i=PositionsTotal()-1; i>=0; i--)
    {
       if(PositionSelectByTicket(PositionGetTicket(i)) && PositionGetInteger(POSITION_MAGIC) == InpMagic)
