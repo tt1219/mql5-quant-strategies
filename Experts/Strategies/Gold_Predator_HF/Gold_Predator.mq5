@@ -15,12 +15,11 @@
 //--- Gold_Predator v1.3.4 "The Golden Balance"
 //--- Optimized for Spread 35, ADX 21 (DD minimized to 25%)
 #define MAX_SPREAD_ALLOWED 50
-#define ADX_THRESHOLD 21
-
-input double InpTPMult        = 6.5;    // Optimized for Current Spread
-input double InpMomentumRatio = 1.0;    
-input double InpRiskPercent   = 3.0;    // Standard Power
-input double InpSLMult        = 1.5;
+input int    InpADXThreshold  = 34;     // ADX Threshold (Gold Standard)
+input double InpTPMult        = 7.5;    // TakeProfit Multiplier
+input double InpMomentumRatio = 0.7;    // Momentum Filter Ratio
+input double InpRiskPercent   = 2.0;    // Risk Percent (Safety First)
+input double InpSLMult        = 1.6;    // StopLoss Multiplier
 input long   InpMagic         = 777777; 
 
 int handleATR, handleEMA_H4, handleADX;
@@ -59,12 +58,12 @@ void DisplayStatus() {
                    "Version: 1.3.4 (Monitoring Active)\n" +
                    "-----------------------------------\n" +
                    "Current Spread: " + (string)currentSpread + " (Max: " + (string)MAX_SPREAD_ALLOWED + ")\n" +
-                   "ADX: " + DoubleToString(adx[0], 1) + " (Min: " + (string)ADX_THRESHOLD + ")\n" +
+                   "ADX: " + DoubleToString(adx[0], 1) + " (Min: " + (string)InpADXThreshold + ")\n" +
                    "TP Multiplier: " + DoubleToString(InpTPMult, 1) + "\n" +
                    "Risk Percent: " + DoubleToString(InpRiskPercent, 1) + "%\n" +
                    "Status: " + (newsFilter.IsRestricted() ? "NEWS RESTRICTED" : 
                                (currentSpread > MAX_SPREAD_ALLOWED ? "SPREAD TOO HIGH" : 
-                               (adx[0] < ADX_THRESHOLD ? "RANGING" : "TRENDING"))) + "\n";
+                               (adx[0] < InpADXThreshold ? "RANGING" : "TRENDING"))) + "\n";
    Comment(status);
 }
 
@@ -84,7 +83,7 @@ void OnTick() {
    if(CopyBuffer(handleATR, 0, 0, 1, atr) <= 0) return;
    if(CopyBuffer(handleADX, 0, 0, 1, adx) <= 0) return;
    
-   if(adx[0] < ADX_THRESHOLD) return;
+   if(adx[0] < InpADXThreshold) return;
 
    if(CopyHigh(_Symbol, PERIOD_H1, 1, 1, high) <= 0) return;
    if(CopyLow(_Symbol, PERIOD_H1, 1, 1, low) <= 0) return;

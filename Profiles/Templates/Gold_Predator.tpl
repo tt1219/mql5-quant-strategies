@@ -5,10 +5,11 @@ name=Strategies\Gold_Predator_HF\Gold_Predator
 path=Experts\Strategies\Gold_Predator_HF\Gold_Predator.ex5
 expertmode=1
 <inputs>
-InpTPMult=6.5
-InpMomentumRatio=1.0
-InpRiskPercent=3.0
-InpSLMult=1.5
+InpADXThreshold=34
+InpTPMult=7.5
+InpMomentumRatio=0.7
+InpRiskPercent=2.0
+InpSLMult=1.6
 InpMagic=777777
 </inputs>
 </expert>
@@ -29,7 +30,7 @@ x_distance=20
 y_distance=20
 hidden=1
 editable=0
-tooltip=Gold Predator HF Active
+tooltip=Gold Predator HF Active (ADX 34 Golden Standard)
 </object>
 </indicator>
 </window>
